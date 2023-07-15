@@ -6,21 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rust-embed = { version = "6.8.1", features = ["include-exclude"] }
-tokio = { version = "1.29.1", features = ["full"] }
-tokio-stream = "0.1.14"
-tungstenite = "0.19.0"
-httparse = "1.8.0"
-warp = { version = "0.3.5", features = ["tls", "tokio-rustls", "websocket"] }
-serde = { version = "1.0.171", features = ["derive", "serde_derive"] }
-serde_json = "1.0.102"
-futures = { version = "0.3.28" }
-uuid = { version = "1.4.0", features = ["serde", "v4"] }
-mime_guess = "2.0.4"
-warp-embed = "0.4.0"
+futures = { version = "*", default-features = false }
+warp = { version = "*", default-features = false, features = ["tls"] } # exists in warp-embed
+tokio = { version = "*", default-features = false, features = ["macros", "rt-multi-thread"] } # exists in reqwest, warp
+rust-embed = { version = "*", default-features = false, features = ["include-exclude"] } # exists in warp-embed
+warp-embed = { version = "0.4.0", default-features = false }
 reqwest = { version = "0.11.18", default-features = false, features = ["stream", "wasm-streams"] }
-once_cell = "1.18.0"
-thiserror = "1.0.43"
-hyper = "0.14.27"
-url = "2.4.0"
-const_format = "0.2.31"
+tungstenite = { version = "*", default-features = false } # exists in warp::tokio-tungstenite,
+once_cell = { version = "*", default-features = false } # exists in reqwest::tracing::tracing-core
+thiserror = { version = "*", default-features = false } # exists in tungstenite
+hyper = { version = "*", default-features = false } # exists in futures, reqwest, warp
+url = { version = "*", default-features = false } # exists in reqwest
+const_format = {version = "0.2.31", default-features = false }
