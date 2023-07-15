@@ -1,0 +1,26 @@
+#!/bin/sh
+
+case "$1" in
+  start)
+	 printf "Starting iridium-proxy: "
+	 nohup /root/iridium-proxy > /dev/null 2>&1 &
+	 [ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  stop)
+	 printf "Stopping iridium-proxy: "
+	 pid=$( pidof 'iridium-proxy' )
+   if [ ! -z "$pid" ]; then
+     kill -SIGTERM $pid > /dev/null 2>&1
+  	 [ $? = 0 ] && echo "OK" || echo "FAIL"
+   else
+     echo "NOTHING TO DO"
+   fi
+	;;
+  restart|reload)
+	 "$0" stop
+	 "$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
