@@ -122,8 +122,38 @@ fn proxy_client<'a>() -> &'a reqwest::Client {
 }
 
 pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
+    let  reply:Box<dyn warp::Reply>;
+    let authorized = call_proxy_ok(cookie).await;
+    if authorized {
+        reply = Box::new(ws.on_upgrade(move |local_socket| websocket::on_websocket_upgrade(local_socket)));
+    } else {
+        reply = Box::new(warp::http::StatusCode::NOT_ACCEPTABLE);
+    }
+    return Ok(reply);
+}
 
-    return Ok(ws.on_upgrade(move |local_socket| websocket::on_websocket_upgrade(local_socket)));
+
+
+async fn call_proxy_ok(cookie: Option<hyper::header::HeaderValue>) -> bool {
+    let mut remote_uri: String = PROXY_URL_BASE.to_string();
+    remote_uri.push_str("json/ok");
+
+    let proxy_client = proxy_client();
+
+    let mut remote_request_builder = proxy_client
+        .request(reqwest::Method::GET, remote_uri);
+    for v in cookie.iter() {
+        remote_request_builder = remote_request_builder.header("cookie", v.clone());
+    }
+    let remote_request = remote_request_builder.build().unwrap();
+
+    let remote_response_result = proxy_client
+        .execute(remote_request)
+        .await;
+
+    return remote_response_result.map_or(false, |v| {
+        v.status() == reqwest::StatusCode::OK
+    });
 }
 
 

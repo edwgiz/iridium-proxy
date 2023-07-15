@@ -9,17 +9,19 @@ use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use url::Url;
 
-use crate::commons::PROXY_HOST;
 
-const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", PROXY_HOST);
+//noinspection RsUnusedImport
+const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
 
+/// Additional runtime is required to don't block main tokio's one
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap());
 
+
 pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
-    let (mut local_ws_tx, mut local_ws_rx) = local_socket.split();
+    let (local_ws_tx, mut local_ws_rx) = local_socket.split();
 
     let local_active = Arc::new(AtomicBool::new(true));
     let remote_active = Arc::clone(&local_active);
@@ -28,7 +30,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
 
     loop {
         let msg_option = local_ws_rx.next().await;
-        if(msg_option.is_none()) {
+        if msg_option.is_none() {
             break;
         }
         let msg_result = msg_option.unwrap();
@@ -46,6 +48,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
     remote_read_task.await.unwrap();
     return;
 }
+
 
 fn read_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
     let future = async move {
