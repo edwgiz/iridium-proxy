@@ -15,3 +15,7 @@ pub enum Error {
 }
 
 impl Reject for Error {}
+
+
+pub const PROXY_HOST: &'static str = "192.168.1.254:8888";
+

@@ -1,5 +1,3 @@
-use core::result::Result;
-use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -10,15 +8,10 @@ use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use url::Url;
-use warp::ws::{Message, WebSocket};
 
-use crate::PROXY_HOST;
+use crate::commons::PROXY_HOST;
 
-const PROXY_URL_BASE: &'static str = formatcp!("ws://{}/", PROXY_HOST);
-
-pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
-    return Ok(ws.on_upgrade(move |local_socket| on_websocket_upgrade(local_socket)));
-}
+const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", PROXY_HOST);
 
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| tokio::runtime::Builder::new_multi_thread()
     .enable_all()
@@ -54,10 +47,11 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
     return;
 }
 
-fn read_remote_websocket(mut local_ws_tx: SplitSink<WebSocket, Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
+fn read_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
     let future = async move {
+        let url = Url::parse(PROXY_WEBSOCKET_URL).unwrap();
         let (mut remote_socket, _) =
-            tungstenite::client::connect(Url::parse(PROXY_URL_BASE).unwrap()).unwrap();
+            tungstenite::client::connect(url).unwrap();
         while remote_active.load(Ordering::Relaxed) {
             let result = remote_socket.read_message();
             if result.is_err() {

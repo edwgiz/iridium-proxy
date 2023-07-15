@@ -1,3 +1,5 @@
+use core::result::Result;
+use std::convert::Infallible;
 use std::include_bytes;
 
 use const_format::formatcp;
@@ -5,7 +7,7 @@ use once_cell::sync::OnceCell;
 use rust_embed::RustEmbed;
 use warp::Filter;
 
-mod errors;
+mod commons;
 mod websocket;
 
 
@@ -18,9 +20,7 @@ struct StaticResources;
 #[include = "*.pem"]
 struct TlsResources;
 
-
-const PROXY_HOST: &'static str = "192.168.1.254:8888";
-static PROXY_URL_BASE: &'static str = formatcp!("http://{}/", PROXY_HOST);
+static PROXY_URL_BASE: &'static str = formatcp!("http://{}/", commons::PROXY_HOST);
 const PASSWORD: &'static [u8] = "edwgiz".as_bytes();
 static PROXY_CLIENT: OnceCell<reqwest::Client> = OnceCell::new();
 
@@ -36,13 +36,13 @@ async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hy
             .header(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/x-www-form-urlencoded").unwrap())
             .body("Password=2007&name=authform&Login=admin")
             .build()
-            .map_err(errors::Error::Request)
+            .map_err(commons::Error::Request)
             .map_err(warp::reject::custom)?;
 
         let remote_response = proxy_client
             .execute(remote_request)
             .await
-            .map_err(errors::Error::Request)
+            .map_err(commons::Error::Request)
             .map_err(warp::reject::custom)?;
 
 
@@ -67,7 +67,7 @@ async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hy
     return local_response
         .status(status_code)
         .body(hyper::Body::empty())
-        .map_err(errors::Error::Http)
+        .map_err(commons::Error::Http)
         .map_err(warp::reject::custom);
 }
 
@@ -92,13 +92,13 @@ async fn call_proxy(
         remote_request_builder = remote_request_builder.header("cookie", v.clone());
     }
     let remote_request = remote_request_builder.build()
-        .map_err(errors::Error::Request)
+        .map_err(commons::Error::Request)
         .map_err(warp::reject::custom)?;
 
     let remote_response = proxy_client
         .execute(remote_request)
         .await
-        .map_err(errors::Error::Request)
+        .map_err(commons::Error::Request)
         .map_err(warp::reject::custom)?;
 
     let mut local_response = warp::http::Response::builder();
@@ -108,7 +108,7 @@ async fn call_proxy(
     return local_response
         .status(remote_response.status())
         .body(hyper::Body::wrap_stream(remote_response.bytes_stream()))
-        .map_err(errors::Error::Http)
+        .map_err(commons::Error::Http)
         .map_err(warp::reject::custom);
 }
 
@@ -120,6 +120,12 @@ fn proxy_client<'a>() -> &'a reqwest::Client {
             .expect("Default reqwest client couldn't build");
     })
 }
+
+pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
+
+    return Ok(ws.on_upgrade(move |local_socket| websocket::on_websocket_upgrade(local_socket)));
+}
+
 
 #[tokio::main]
 async fn main() {
@@ -140,7 +146,7 @@ async fn main() {
     let proxy_websocket_route = warp::path("proxy")
         .and(warp::header::optional("cookie"))
         .and(warp::ws())
-        .and_then(websocket::local_websocket_handler)
+        .and_then(local_websocket_handler)
         .boxed();
 
     let static_resources = warp_embed::embed(&StaticResources {});
