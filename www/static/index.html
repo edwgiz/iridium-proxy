@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Home</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            letter-spacing: 3px;
+            background-color: black;
+            user-select: none;
+            color: white;
+        }
+
+        html {
+        }
+
+        #login-container {
+            height: 100%;
+            min-height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            row-gap: 30vw;
+            background: radial-gradient(ellipse at 30% 40%, rgba(0, 198, 214, 1) 0%, rgba(0, 126, 154, 1) 50%, rgba(0, 50, 131, 1) 100%);
+            font-size: 10vw;
+            z-index: 1000;
+        }
+
+        input.login, button.login {
+            width: 80%;
+            font-size: 10vw;
+            padding: 1vw;
+            text-align: center;
+            font-family: sans-serif;
+            outline: none;
+            border-radius: 0.5em;
+            border-width: 2px;
+            border-color: lightgrey;
+        }
+
+        button.login {
+            background-color: #00b3c2;
+        }
+
+        input.login::placeholder {
+            color: lightgrey;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.slider {
+            -webkit-appearance: none;
+            width: 80%;
+            height: 44px;
+            background: none;
+            border-top: solid white 3px;
+            outline: none;
+            z-index: 1000;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 64px;
+            height: 120px;
+            background-image: url("brightness.png");
+            background-repeat: no-repeat;
+            background-position: top center;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        span.slider {
+            display: block;
+            z-index: 0;
+        }
+
+        #lighting-container > div {
+            font-size: xxx-large;
+            color: white;
+            padding: 40px 20px 20px 20px;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+<form id="login-container">
+    <!--suppress HtmlUnknownTarget -->
+    <img src="/logo.png" alt="" style="margin-top: 20vw; margin-bottom: 20px">
+    <!--suppress HtmlFormInputWithoutLabel -->
+    <input id="password" type="password" size="8" placeholder="password" class="login">
+    <button id="submit-login" value="Login" class="login">Login</button>
+</form>
+<div id="main-container">
+    <div id="lighting-container"></div>
+</div>
+
+<script>
+    const d = document;
+    const loginContainer = d.getElementById('login-container');
+    const mainContainer = d.getElementById('main-container');
+    let socket = null;
+
+    function readFeedbacks(url, callback) {
+        const xr = new XMLHttpRequest();
+        xr.open("GET", url, true);
+        xr.onload = function () {
+            switch (xr.status) {
+                case 200:
+                    const response = JSON.parse(xr.responseText);
+                    // noinspection JSUnresolvedReference
+                    response.tags.forEach(e => {
+                        applyFeedback(e[1], e[3], callback);
+                    });
+                    if (!socket) {
+                        listenFeedbacks();
+                    }
+                    break;
+                case 406:
+                    if(socket) {
+                        socket.close();
+                        socket = null;
+                    }
+                    requireLogin('flex');
+                    break;
+                default:
+                    alert("Connection response status: " + xr.status + " " + xr.statusText);
+                    break;
+            }
+        };
+        xr.send();
+    }
+
+    function readAllFeedbacks() {
+        readFeedbacks("/proxy/json/tags/server/tags/get?from=0&count=999&what=tags", (name, prevValue, newValue) => {});
+    }
+
+    let i = 30;
+    function readFeedback(name) {
+        i = 30;
+        readFeedbacks("/proxy/json/tags/server/tags/get?from=0&count=1&what=tags&filter=" + encodeURIComponent(name),
+            (name, prevValue, newValue) => {
+            });
+    }
+
+
+    function requireLogin(display) {
+        mainContainer.style.display = display === "none" ? "block" : "none";
+        loginContainer.style.display = display;
+    }
+
+
+    function doLogin() {
+        d.cookie = "";
+        const xr = new XMLHttpRequest();
+        xr.open("POST", "/login", false);
+        xr.setRequestHeader("Content-Type", "plain/text");
+        xr.onload = function () {
+            if (xr.status === 200) {
+                requireLogin('none')
+            } else {
+                alert("Login unsuccessful\n\n" + xr.responseText);
+            }
+        };
+        let password = d.getElementById("password").value;
+        xr.send(password);
+    }
+
+    loginContainer.onsubmit = function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        doLogin();
+        return false;
+    }
+
+
+    function setDimmer(ev) {
+        const xr = new XMLHttpRequest();
+        xr.open("GET", "/proxy/json/ok/server/channel/set?name="
+            + ev.target.command
+            + "&value=" + ev.target.value, false);
+        xr.send();
+        const feedbackName = ev.target.feedback;
+        setTimeout(function () {
+            readFeedback(feedbackName);
+        }, 4000);
+    }
+
+
+    const feedbacks = {};
+
+    function init() {
+        feedbacks.length = 0;
+        const xr = new XMLHttpRequest();
+        xr.open("GET", "/lighting.json", false);
+        xr.send();
+        const arr = JSON.parse(xr.responseText);
+        const lightingContainer = d.getElementById("lighting-container");
+        arr.forEach((e) => {
+            if (e[0] === "dimmer") {
+                const cell = d.createElement('div');
+
+                let label = d.createElement('span');
+                label.classList.add("slider")
+                let text = d.createTextNode(e[3]);
+                label.appendChild(text);
+                cell.appendChild(label);
+
+                const slider = d.createElement('input');
+                slider.type = "range";
+                slider.min = "0";
+                slider.max = "100";
+                slider.value = "0";
+                slider.command = e[1];
+                slider.feedback = e[2];
+                feedbacks[slider.feedback] = slider;
+                slider.classList.add("slider");
+                slider.onchange = setDimmer;
+                cell.appendChild(slider);
+
+                lightingContainer.appendChild(cell);
+            }
+        });
+    }
+
+    const webSocketMessagePattern = RegExp("^[^;]+;[^;]+;([^;]+);([^;]+)");
+
+    function applyFeedback(name, value, callback) {
+        const element = feedbacks[name];
+        if (element != null) {
+            const prevValue = Number.parseFloat(element.value);
+            const newValue = Number.parseFloat(value);
+            callback(name, prevValue, newValue);
+            element.value = newValue;
+        }
+    }
+
+
+    function closeWebsocket() {
+        console.log("closeWebsocket");
+        const s = this.socket;
+        this.socket = null;
+        if (s != null) {
+            s.close(1001, "");
+        }
+    }
+
+    function listenFeedbacks() {
+        closeWebsocket();
+        socket = new WebSocket("wss://" + window.location.host + "/proxy/ws/");
+        socket.onmessage = function (ev) {
+            if (ev.type === "message") {
+                const matchArray = webSocketMessagePattern.exec(ev.data);
+                if (matchArray) {
+                    applyFeedback(matchArray[1], matchArray[2], (name, prevValue, newValue) => {});
+                }
+            }
+        };
+        socket.onopen = function () {
+            socket.send("Hello");
+        }
+        socket.onclose = function () {
+            socket = null;
+        }
+    }
+
+
+    //        requireLogin('flex');
+    init();
+    readAllFeedbacks();
+//    listenFeedbacks();
+
+</script>
+</body>
+</html>

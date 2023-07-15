@@ -1,0 +1,104 @@
+[
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 4 value",
+    "KNX Serial (UMC).Gr 4 status value",
+    "Cabinet"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 6 value",
+    "KNX Serial (UMC).Gr 6 status value",
+    "Kitchen"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 12 value",
+    "KNX Serial (UMC).Gr 12 status value",
+    "Man bedroom"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 3-1 value",
+    "KNX Serial (UMC).Gr 3-1 status value",
+    "Hall 1"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 3-2 value",
+    "KNX Serial (UMC).Gr 3-2 status value",
+    "Hall 2"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 5 svalue",
+    "KNX Serial (UMC).Gr 5 sstatus value",
+    "Gr 5"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 2 value",
+    "KNX Serial (UMC).Gr 2 status value",
+    "Hallway"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 8 value",
+    "KNX Serial (UMC).Gr 8 status value",
+    "Bathroom 1"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 9 value",
+    "KNX Serial (UMC).Gr 9 status value",
+    "WC"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 13 value",
+    "KNX Serial (UMC).Gr 13 status value",
+    "Bathroom 2"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 14 value",
+    "KNX Serial (UMC).Gr 14 status value",
+    "Woman bedroom"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 15 value",
+    "KNX Serial (UMC).Gr 15 status value",
+    "Man bedroom"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 1 switch",
+    "KNX Serial (UMC).Gr 1 status switch",
+    "Gr 1"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 1 switch",
+    "KNX Serial (UMC).Gr 1 status switch",
+    "Gr 1"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 7 switch",
+    "KNX Serial (UMC).Gr 7 status switch",
+    "Gr 7"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 10 switch",
+    "KNX Serial (UMC).Gr 10 status switch",
+    "Gr 10"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 11 switch",
+    "KNX Serial (UMC).Gr 11 status switch",
+    "Gr 11"
+  ]
+]
