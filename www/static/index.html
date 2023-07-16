@@ -4,17 +4,16 @@
     <meta charset="UTF-8">
     <title>Smart Home</title>
     <style>
+        html {
+            font-family: sans-serif;
+            user-select: none;
+            color: white;
+            background-color: black;
+        }
         html, body {
             height: 100%;
             margin: 0;
-            font-family: sans-serif;
-            letter-spacing: 3px;
-            background-color: black;
-            user-select: none;
-            color: white;
-        }
-
-        html {
+            padding: 0;
         }
 
         #login-container {
@@ -26,7 +25,8 @@
             justify-content: flex-start;
             row-gap: 30vw;
             background: radial-gradient(ellipse at 30% 40%, rgba(0, 198, 214, 1) 0%, rgba(0, 126, 154, 1) 50%, rgba(0, 50, 131, 1) 100%);
-            font-size: 10vw;
+            font-size: xxx-large;
+            letter-spacing: 4px;
             z-index: 1000;
         }
 
@@ -51,42 +51,78 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        input.slider {
-            -webkit-appearance: none;
-            width: 80%;
-            height: 44px;
-            background: none;
-            border-top: solid white 3px;
-            outline: none;
-            z-index: 1000;
-        }
-
-        /*noinspection CssUnusedSymbol*/
-        input.slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 64px;
-            height: 120px;
-            background-image: url("brightness.png");
-            background-repeat: no-repeat;
-            background-position: top center;
-            cursor: pointer;
-            z-index: 1000;
-        }
-
-        /*noinspection CssUnusedSymbol*/
-        span.slider {
-            display: block;
-            z-index: 0;
-        }
-
-        #lighting-container > div {
-            font-size: xxx-large;
-            color: white;
-            padding: 40px 20px 20px 20px;
+        div.slider {
+            margin: 40px 50px 0 50px;
+            position: relative;
+            height: 100px;
             text-align: center;
         }
 
+        /*noinspection CssUnusedSymbol*/
+        label.slider {
+            position: absolute;
+            z-index: -2;
+            top: 50%;
+            left: 50%;
+            transform: translateY(-50%) translateX(-50%);
+            width: 100%;
+            line-height: 100px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: xxx-large;
+            letter-spacing: 4px;
+            text-wrap: none;
+            color: white;
+            display: block;
+            background-color: #FFFFFF20;
+            border-radius: 50px;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.command-slider, input.feedback-slider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: -1;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 100px;
+            padding: 0;
+            margin: 0;
+            border-style: none;
+            cursor: pointer;
+            background: none;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.command-slider::-webkit-slider-thumb,
+        input.feedback-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 100px;
+            border-radius: 50px;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.command-slider {
+            z-index: 1000;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.command-slider-activated::-webkit-slider-thumb {
+            background: radial-gradient(circle, #ffffff30 0%, #ffffff30 53%, #ffffff 80%, #ffffff 100%);
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.feedback-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffffff 73%, #ffffff 100%);
+        }
     </style>
 </head>
 <body>
@@ -103,11 +139,11 @@
 
 <script>
     const d = document;
-    const loginContainer = d.getElementById('login-container');
-    const mainContainer = d.getElementById('main-container');
+    const login_container = d.getElementById('login-container');
+    const main_container = d.getElementById('main-container');
     let socket = null;
 
-    function readFeedbacks(url, callback) {
+    function read_feedbacks(url) {
         const xr = new XMLHttpRequest();
         xr.open("GET", url, true);
         xr.onload = function () {
@@ -116,10 +152,10 @@
                     const response = JSON.parse(xr.responseText);
                     // noinspection JSUnresolvedReference
                     response.tags.forEach(e => {
-                        applyFeedback(e[1], e[3], callback);
+                        apply_feedback(e[1], e[3]);
                     });
                     if (!socket) {
-                        listenFeedbacks();
+                        listen_feedbacks();
                     }
                     break;
                 case 406:
@@ -127,7 +163,7 @@
                         socket.close();
                         socket = null;
                     }
-                    requireLogin('flex');
+                    require_login('flex');
                     break;
                 default:
                     alert("Connection response status: " + xr.status + " " + xr.statusText);
@@ -137,33 +173,25 @@
         xr.send();
     }
 
-    function readAllFeedbacks() {
-        readFeedbacks("/proxy/json/tags/server/tags/get?from=0&count=999&what=tags", (name, prevValue, newValue) => {});
-    }
-
-    let i = 30;
-    function readFeedback(name) {
-        i = 30;
-        readFeedbacks("/proxy/json/tags/server/tags/get?from=0&count=1&what=tags&filter=" + encodeURIComponent(name),
-            (name, prevValue, newValue) => {
-            });
+    function read_all_feedbacks() {
+        read_feedbacks("/proxy/json/tags/server/tags/get?from=0&count=999&what=tags");
     }
 
 
-    function requireLogin(display) {
-        mainContainer.style.display = display === "none" ? "block" : "none";
-        loginContainer.style.display = display;
+    function require_login(display) {
+        main_container.style.display = display === "none" ? "block" : "none";
+        login_container.style.display = display;
     }
 
 
-    function doLogin() {
+    function do_login() {
         d.cookie = "";
         const xr = new XMLHttpRequest();
         xr.open("POST", "/login", false);
         xr.setRequestHeader("Content-Type", "plain/text");
         xr.onload = function () {
             if (xr.status === 200) {
-                requireLogin('none')
+                require_login('none')
             } else {
                 alert("Login unsuccessful\n\n" + xr.responseText);
             }
@@ -172,24 +200,25 @@
         xr.send(password);
     }
 
-    loginContainer.onsubmit = function (ev) {
+    login_container.onsubmit = function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        doLogin();
+        do_login();
         return false;
     }
 
 
-    function setDimmer(ev) {
+    function set_dimmer(ev) {
+        const el = ev.target;
+        let newValue = Number.parseFloat(el.value);
+        if (newValue > 0 && newValue < 10) {
+            el.value = newValue < 5 ? 0 : 10;
+        }
         const xr = new XMLHttpRequest();
         xr.open("GET", "/proxy/json/ok/server/channel/set?name="
-            + ev.target.command
-            + "&value=" + ev.target.value, false);
+            + el.command
+            + "&value=" + el.value, false);
         xr.send();
-        const feedbackName = ev.target.feedback;
-        setTimeout(function () {
-            readFeedback(feedbackName);
-        }, 4000);
     }
 
 
@@ -201,49 +230,95 @@
         xr.open("GET", "/lighting.json", false);
         xr.send();
         const arr = JSON.parse(xr.responseText);
-        const lightingContainer = d.getElementById("lighting-container");
+        const lighting_container = d.getElementById("lighting-container");
+        console.log(arr);
+
         arr.forEach((e) => {
             if (e[0] === "dimmer") {
                 const cell = d.createElement('div');
+                cell.classList.add("slider");
 
-                let label = d.createElement('span');
+                let label = d.createElement('label');
                 label.classList.add("slider")
                 let text = d.createTextNode(e[3]);
                 label.appendChild(text);
                 cell.appendChild(label);
 
-                const slider = d.createElement('input');
-                slider.type = "range";
-                slider.min = "0";
-                slider.max = "100";
-                slider.value = "0";
-                slider.command = e[1];
-                slider.feedback = e[2];
-                feedbacks[slider.feedback] = slider;
-                slider.classList.add("slider");
-                slider.onchange = setDimmer;
-                cell.appendChild(slider);
+                const feedback_slider = d.createElement('input');
+                feedback_slider.classList.add("feedback-slider");
+                feedback_slider.type = "range";
+                feedback_slider.min = "0";
+                feedback_slider.max = "100";
+                const feedback_name = e[2];
+                feedbacks[feedback_name] = feedback_slider;
+                cell.appendChild(feedback_slider);
 
-                lightingContainer.appendChild(cell);
+                const command_slider = d.createElement('input');
+                command_slider.classList.add("command-slider");
+                command_slider.type = "range";
+                command_slider.min = "0";
+                command_slider.max = "100";
+                command_slider.command = e[1];
+                let pointer_down_event;
+                let pointer_up_event;
+                if(window.PointerEvent) {
+                    pointer_down_event = "pointerdown";
+                    pointer_up_event = "pointerup";
+                } else if(window.TouchEvent) {
+                    pointer_down_event = "touchstart";
+                    pointer_up_event = "touchend";
+                } else {
+                    pointer_down_event = "mousedown";
+                    pointer_up_event = "mouseup";
+                }
+                command_slider.addEventListener(pointer_down_event, on_command_slider_pointer_down, false);
+                command_slider.addEventListener(pointer_up_event, on_command_slider_pointer_up, false);
+
+                command_slider.feedback_slider = feedback_slider;
+
+                command_slider.onchange = set_dimmer;
+                cell.appendChild(command_slider);
+
+                feedback_slider.command_slider = command_slider;
+                feedback_slider.onFeedbackValue = on_feedback_value
+
+                lighting_container.appendChild(cell);
             }
         });
     }
 
-    const webSocketMessagePattern = RegExp("^[^;]+;[^;]+;([^;]+);([^;]+)");
+    function on_command_slider_pointer_down(ev) {
+        const el = ev.target;
+        el.classList.add("command-slider-activated");
+    }
 
-    function applyFeedback(name, value, callback) {
-        const element = feedbacks[name];
-        if (element != null) {
-            const prevValue = Number.parseFloat(element.value);
-            const newValue = Number.parseFloat(value);
-            callback(name, prevValue, newValue);
-            element.value = newValue;
+    function on_command_slider_pointer_up(ev) {
+        const el = ev.target;
+        if(el.value === el.feedback_slider.value) {
+            el.classList.remove("command-slider-activated");
+        }
+    }
+
+    function on_feedback_value (feedback_slider) {
+        if(feedback_slider.command_slider.value === feedback_slider.value) {
+            feedback_slider.command_slider.classList.remove("command-slider-activated");
+        }
+    }
+
+    const web_socket_message_pattern = RegExp("^[^;]+;[^;]+;([^;]+);([^;]+)");
+
+    function apply_feedback(name, value) {
+        const input = feedbacks[name];
+        if (input != null) {
+            input.value = value;
+            if(input.onFeedbackValue) {
+                input.onFeedbackValue(input);
+            }
         }
     }
 
 
-    function closeWebsocket() {
-        console.log("closeWebsocket");
+    function close_websocket() {
         const s = this.socket;
         this.socket = null;
         if (s != null) {
@@ -251,14 +326,14 @@
         }
     }
 
-    function listenFeedbacks() {
-        closeWebsocket();
+    function listen_feedbacks() {
+        close_websocket();
         socket = new WebSocket("wss://" + window.location.host + "/proxy/ws/");
         socket.onmessage = function (ev) {
             if (ev.type === "message") {
-                const matchArray = webSocketMessagePattern.exec(ev.data);
+                const matchArray = web_socket_message_pattern.exec(ev.data);
                 if (matchArray) {
-                    applyFeedback(matchArray[1], matchArray[2], (name, prevValue, newValue) => {});
+                    apply_feedback(matchArray[1], matchArray[2]);
                 }
             }
         };
@@ -271,9 +346,10 @@
     }
 
 
-    //        requireLogin('flex');
+    //        require_login('flex');
     init();
-    readAllFeedbacks();
+
+    read_all_feedbacks();
 //    listenFeedbacks();
 
 </script>
