@@ -12,10 +12,10 @@
     "Kitchen"
   ],
   [
-    "dimmer",
-    "KNX Serial (UMC).Gr 12 value",
-    "KNX Serial (UMC).Gr 12 status value",
-    "Man bedroom"
+    "switch",
+    "KNX Serial (UMC).Gr 7 switch",
+    "KNX Serial (UMC).Gr 7 status switch",
+    "Kitchen"
   ],
   [
     "dimmer",
@@ -31,15 +31,15 @@
   ],
   [
     "dimmer",
-    "KNX Serial (UMC).Gr 5 svalue",
-    "KNX Serial (UMC).Gr 5 sstatus value",
-    "Gr 5"
-  ],
-  [
-    "dimmer",
     "KNX Serial (UMC).Gr 2 value",
     "KNX Serial (UMC).Gr 2 status value",
     "Hallway"
+  ],
+  [
+    "switch",
+    "KNX Serial (UMC).Gr 1 switch",
+    "KNX Serial (UMC).Gr 1 status switch",
+    "Hall entrance"
   ],
   [
     "dimmer",
@@ -61,6 +61,12 @@
   ],
   [
     "dimmer",
+    "KNX Serial (UMC).Gr 12 value",
+    "KNX Serial (UMC).Gr 12 status value",
+    "Man bedroom"
+  ],
+  [
+    "dimmer",
     "KNX Serial (UMC).Gr 14 value",
     "KNX Serial (UMC).Gr 14 status value",
     "Woman bedroom"
@@ -69,36 +75,24 @@
     "dimmer",
     "KNX Serial (UMC).Gr 15 value",
     "KNX Serial (UMC).Gr 15 status value",
-    "Man bedroom"
-  ],
-  [
-    "switch",
-    "KNX Serial (UMC).Gr 1 switch",
-    "KNX Serial (UMC).Gr 1 status switch",
-    "Gr 1"
-  ],
-  [
-    "switch",
-    "KNX Serial (UMC).Gr 1 switch",
-    "KNX Serial (UMC).Gr 1 status switch",
-    "Gr 1"
-  ],
-  [
-    "switch",
-    "KNX Serial (UMC).Gr 7 switch",
-    "KNX Serial (UMC).Gr 7 status switch",
-    "Gr 7"
+    "Child bedroom"
   ],
   [
     "switch",
     "KNX Serial (UMC).Gr 10 switch",
     "KNX Serial (UMC).Gr 10 status switch",
-    "Gr 10"
+    "Technical room"
   ],
   [
     "switch",
     "KNX Serial (UMC).Gr 11 switch",
     "KNX Serial (UMC).Gr 11 status switch",
-    "Gr 11"
+    "Backyard entrance"
+  ],
+  [
+    "dimmer",
+    "KNX Serial (UMC).Gr 5 svalue",
+    "KNX Serial (UMC).Gr 5 sstatus value",
+    "Gr 5"
   ]
 ]

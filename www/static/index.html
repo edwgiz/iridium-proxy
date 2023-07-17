@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport"
+          content="target-densitydpi=device-dpi, width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
     <title>Smart Home</title>
     <style>
         html {
@@ -81,7 +83,7 @@
             text-wrap: none;
             color: #ffffff;
             display: block;
-            background-color: #FFFFFF20;
+            background-color: #2A2A2A;
             border-radius: min(5vw, 5vh);
         }
 
@@ -119,13 +121,53 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        input.command-slider-activated::-webkit-slider-thumb {
+        input.command-slider-activated::-webkit-slider-thumb,
+        /*
+        input.switch-activated {
             background: radial-gradient(circle, #ffffff30 0%, #ffffff30 53%, #ffffff 80%, #ffffff 100%);
         }
+        */
 
         /*noinspection CssUnusedSymbol*/
         input.feedback-slider::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffffff 73%, #ffffff 100%);
+        }
+
+        input, input:hover, input:active, input:focus {
+            border-style: none;
+            outline: none;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.switch {
+            margin: min(5vw, 5vh);
+            position: relative;
+            width: calc(100% - min(10vw, 10vh));
+            height: min(10vw, 10vh);
+            text-align: center;
+            line-height: min(10vw, 10vh);
+            vertical-align: middle;
+            font-size: min(7vw, 7vh);
+            letter-spacing: 4px;
+            text-wrap: none;
+            color: #ffffff;
+            display: block;
+            background-color: #2a2a2a;
+            border-radius: min(5vw, 5vh);
+            border-style: none;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.switch-on {
+            background: radial-gradient(closest-corner, #2a2a2a 63%, #ffffff 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > input.switch-on {
+            background: radial-gradient(closest-corner, #2a2a2a 63%, #ffffff 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > input.switch:active {
+            background: radial-gradient(closest-corner, #2a2a2a 58%, #ffffff 100%);
         }
 
         /*noinspection CssUnusedSymbol*/
@@ -139,6 +181,19 @@
         /*noinspection CssUnusedSymbol*/
         #lighting-container > div > input.feedback-slider::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffff80 73%, #ffff80 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > input.switch {
+            color: #ffff80;
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > input.switch-on {
+            background: radial-gradient(closest-corner, #2a2a2a 73%, #ffff80 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > input.switch:active {
+            background: radial-gradient(closest-corner, #2a2a2a 68%, #ffff80 100%);
+            border-style: none;
         }
     </style>
 </head>
@@ -231,22 +286,46 @@
     }
 
 
-    function set_dimmer(ev) {
-        const el = ev.target;
+    function adjust_command_slider_value(command_slider) {
         // noinspection JSCheckFunctionSignatures
-        let newValue = Number.parseFloat(el.value);
+        let newValue = Number.parseFloat(command_slider.value);
         if (newValue > 0 && newValue < 10) {
-            el.value = newValue < 5 ? 0 : 10;
+            command_slider.value = newValue < 5 ? 0 : 10;
         }
+    }
+
+    function send_command(command_name, value) {
         const xr = new XMLHttpRequest();
         xr.open("GET", "/proxy/json/ok/server/channel/set?name="
-            + el.command
-            + "&value=" + el.value, false);
+            + command_name
+            + "&value=" + value, false);
         xr.send();
     }
 
+    function on_dimmer_changed(ev) {
+        const el = ev.target;
+        adjust_command_slider_value(el);
+        send_command(el.command, el.value);
+    }
 
     const feedbacks = {};
+
+    function add_touch_listeners(el, down, up) {
+        let down_signal_name;
+        let up_signal_name;
+        if (window.PointerEvent) {
+            down_signal_name = "pointerdown";
+            up_signal_name = "pointerup";
+        } else if (window.TouchEvent) {
+            down_signal_name = "touchstart";
+            up_signal_name = "touchend";
+        } else {
+            down_signal_name = "mousedown";
+            up_signal_name = "mouseup";
+        }
+        el.addEventListener(down_signal_name, down, false);
+        el.addEventListener(up_signal_name, up, false);
+    }
 
     function init() {
         feedbacks.length = 0;
@@ -256,81 +335,101 @@
         const arr = JSON.parse(xr.responseText);
         const lighting_container = d.getElementById("lighting-container");
         arr.forEach((e) => {
-            if (e[0] === "dimmer") {
-                const cell = d.createElement('div');
-                cell.classList.add("slider");
+            const command_name = e[1];
+            const feedback_name = e[2];
+            const label_text = e[3];
+            let cell = null;
+            switch (e[0]) {
+                case "dimmer":
+                    cell = d.createElement('div');
+                    cell.classList.add("slider");
 
-                let label = d.createElement('label');
-                label.classList.add("slider")
-                let text = d.createTextNode(e[3]);
-                label.appendChild(text);
-                cell.appendChild(label);
+                    let label = d.createElement('label');
+                    label.classList.add("slider")
+                    let text = d.createTextNode(label_text);
+                    label.appendChild(text);
+                    cell.appendChild(label);
 
-                const feedback_slider = d.createElement('input');
-                feedback_slider.classList.add("feedback-slider");
-                feedback_slider.type = "range";
-                feedback_slider.min = "0";
-                feedback_slider.max = "100";
-                feedback_slider.value = "0";
-                const feedback_name = e[2];
-                feedbacks[feedback_name] = feedback_slider;
-                cell.appendChild(feedback_slider);
+                    const feedback_slider = d.createElement('input');
+                    feedback_slider.classList.add("feedback-slider");
+                    feedback_slider.type = "range";
+                    feedback_slider.min = "0";
+                    feedback_slider.max = "100";
+                    feedback_slider.value = "0";
+                    feedbacks[feedback_name] = feedback_slider;
+                    cell.appendChild(feedback_slider);
 
-                const command_slider = d.createElement('input');
-                command_slider.classList.add("command-slider");
-                command_slider.type = "range";
-                command_slider.min = "0";
-                command_slider.max = "100";
-                command_slider.value = "0";
-                command_slider.command = e[1];
-                let pointer_down_event;
-                let pointer_up_event;
-                if(window.PointerEvent) {
-                    pointer_down_event = "pointerdown";
-                    pointer_up_event = "pointerup";
-                } else if(window.TouchEvent) {
-                    pointer_down_event = "touchstart";
-                    pointer_up_event = "touchend";
-                } else {
-                    pointer_down_event = "mousedown";
-                    pointer_up_event = "mouseup";
-                }
-                command_slider.addEventListener(pointer_down_event, on_command_slider_pointer_down, false);
-                command_slider.addEventListener(pointer_up_event, on_command_slider_pointer_up, false);
+                    const command_slider = d.createElement('input');
+                    command_slider.classList.add("command-slider");
+                    command_slider.type = "range";
+                    command_slider.min = "0";
+                    command_slider.max = "100";
+                    command_slider.value = "0";
+                    command_slider.command = command_name;
+                    add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
 
-                command_slider.feedback_slider = feedback_slider;
+                    command_slider.feedback_slider = feedback_slider;
 
-                command_slider.onchange = set_dimmer;
-                cell.appendChild(command_slider);
+                    command_slider.onchange = on_dimmer_changed;
+                    cell.appendChild(command_slider);
 
-                feedback_slider.command_slider = command_slider;
-                feedback_slider.on_feedback_value = on_slider_feedback_value
-                feedback_slider.init_value = init_feedback_slider_value
+                    feedback_slider.command_slider = command_slider;
+                    feedback_slider.on_feedback_value = on_slider_feedback_value
+                    feedback_slider.init_value = init_feedback_slider_value
 
+                    lighting_container.appendChild(cell);
+                    break;
+                case "switch":
+                    cell = d.createElement("input");
+                    cell.type = "button";
+                    cell.classList.add("switch")
+                    cell.value = label_text;
+                    cell.command = command_name;
+                    cell.command_value = true;
+                    cell.onclick = on_switch_click;
+                    cell.on_feedback_value = on_switch_feedback_value
+                    feedbacks[feedback_name] = cell;
+                    break;
+            }
+            if(cell) {
                 lighting_container.appendChild(cell);
             }
         });
     }
 
+    function on_switch_click(ev) {
+        ev.target.classList.add("switch-on");
+        let el = ev.target;
+        el.command_value = !el.command_value;
+        send_command(el.command, el.command_value ? "1" : "0");
+    }
+
+    function on_switch_feedback_value (el, value) {
+        el.command_value = Number.parseFloat(value) === 1;
+        if(el.command_value) {
+            el.classList.add("switch-on");
+        } else {
+            el.classList.remove("switch-on");
+        }
+  //      el.classList.remove("switch-activated");
+    }
+
+
     function on_command_slider_pointer_down(ev) {
-        const el = ev.target;
-        el.classList.add("command-slider-activated");
+        ev.target.classList.add("command-slider-activated");
     }
 
     function on_command_slider_pointer_up(ev) {
         const el = ev.target;
-        // noinspection JSCheckFunctionSignatures
-        let newValue = Number.parseFloat(el.value);
-        if (newValue > 0 && newValue < 10) {
-            el.value = newValue < 5 ? 0 : 10;
-        }
+        adjust_command_slider_value(el);
         // noinspection JSIncompatibleTypesComparison
         if(el.value === el.feedback_slider.value) {
             el.classList.remove("command-slider-activated");
         }
     }
 
-    function on_slider_feedback_value (feedback_slider) {
+    function on_slider_feedback_value (feedback_slider, value) {
+        feedback_slider.value = value;
         if(feedback_slider.command_slider.value === feedback_slider.value) {
             feedback_slider.command_slider.classList.remove("command-slider-activated");
         }
@@ -345,11 +444,10 @@
     function apply_feedback(name, value, initFlag) {
         const input = feedbacks[name];
         if (input != null) {
-            input.value = value;
             if(input.on_feedback_value) {
-                input.on_feedback_value(input);
+                input.on_feedback_value(input, value);
             }
-            if(initFlag && input.init_value(input, value)) {
+            if(initFlag && input.init_value && input.init_value(input, value)) {
                 input.init_value(value);
             }
         }
