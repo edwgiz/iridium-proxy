@@ -29,7 +29,6 @@
             align-items: center;
             justify-content: flex-start;
             row-gap: min(9vw, 9vh);
-            font-size: xxx-large;
             letter-spacing: 4px;
             z-index: 1000;
         }
@@ -53,11 +52,16 @@
             color: lightgrey;
         }
 
+        #main-container {
+            margin: auto;
+            max-width: 120vh;
+        }
+
         /*noinspection CssUnusedSymbol*/
         div.slider {
-            margin: 40px 50px 0 50px;
+            margin: min(5vw, 5vh);
             position: relative;
-            height: 100px;
+            height: min(10vw, 10vh);
             text-align: center;
         }
 
@@ -69,16 +73,16 @@
             left: 50%;
             transform: translateY(-50%) translateX(-50%);
             width: 100%;
-            line-height: 100px;
+            line-height: min(10vw, 10vh);
             text-align: center;
             vertical-align: middle;
-            font-size: xxx-large;
+            font-size: min(7vw, 7vh);
             letter-spacing: 4px;
             text-wrap: none;
             color: white;
             display: block;
             background-color: #FFFFFF20;
-            border-radius: 50px;
+            border-radius: min(5vw, 5vh);
         }
 
         /*noinspection CssUnusedSymbol*/
@@ -91,7 +95,7 @@
             -webkit-appearance: none;
             appearance: none;
             width: 100%;
-            height: 100px;
+            height: 100%;
             padding: 0;
             margin: 0;
             border-style: none;
@@ -104,9 +108,9 @@
         input.feedback-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 100px;
-            height: 100px;
-            border-radius: 50px;
+            height: min(10vw, 10vh);
+            width: min(10vw, 10vh);
+            border-radius: 50%;
         }
 
         /*noinspection CssUnusedSymbol*/
@@ -121,9 +125,6 @@
 
         /*noinspection CssUnusedSymbol*/
         input.feedback-slider::-webkit-slider-thumb {
-            appearance: none;
-            width: 100px;
-            height: 100px;
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffffff 73%, #ffffff 100%);
         }
     </style>
@@ -155,7 +156,7 @@
                     const response = JSON.parse(xr.responseText);
                     // noinspection JSUnresolvedReference
                     response.tags.forEach(e => {
-                        apply_feedback(e[1], e[3]);
+                        apply_feedback(e[1], e[3], true);
                     });
                     if (!socket) {
                         listen_feedbacks();
@@ -256,6 +257,7 @@
                 feedback_slider.type = "range";
                 feedback_slider.min = "0";
                 feedback_slider.max = "100";
+                feedback_slider.value = "0";
                 const feedback_name = e[2];
                 feedbacks[feedback_name] = feedback_slider;
                 cell.appendChild(feedback_slider);
@@ -265,6 +267,7 @@
                 command_slider.type = "range";
                 command_slider.min = "0";
                 command_slider.max = "100";
+                command_slider.value = "0";
                 command_slider.command = e[1];
                 let pointer_down_event;
                 let pointer_up_event;
@@ -287,7 +290,8 @@
                 cell.appendChild(command_slider);
 
                 feedback_slider.command_slider = command_slider;
-                feedback_slider.onFeedbackValue = on_feedback_value
+                feedback_slider.on_feedback_value = on_slider_feedback_value
+                feedback_slider.init_value = init_feedback_slider_value
 
                 lighting_container.appendChild(cell);
             }
@@ -306,20 +310,27 @@
         }
     }
 
-    function on_feedback_value (feedback_slider) {
+    function on_slider_feedback_value (feedback_slider) {
         if(feedback_slider.command_slider.value === feedback_slider.value) {
             feedback_slider.command_slider.classList.remove("command-slider-activated");
         }
     }
 
+    function init_feedback_slider_value(feedback_slider, value) {
+        feedback_slider.command_slider.value = value;
+    }
+
     const web_socket_message_pattern = RegExp("^[^;]+;[^;]+;([^;]+);([^;]+)");
 
-    function apply_feedback(name, value) {
+    function apply_feedback(name, value, initFlag) {
         const input = feedbacks[name];
         if (input != null) {
             input.value = value;
-            if(input.onFeedbackValue) {
-                input.onFeedbackValue(input);
+            if(input.on_feedback_value) {
+                input.on_feedback_value(input);
+            }
+            if(initFlag && input.init_value(input, value)) {
+                input.init_value(value);
             }
         }
     }
@@ -335,14 +346,13 @@
 
     function listen_feedbacks() {
         close_websocket();
-        console.log(window.location.protocol);
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         socket = new WebSocket(protocol + "//" + window.location.host + "/proxy/ws/");
         socket.onmessage = function (ev) {
             if (ev.type === "message") {
-                const matchArray = web_socket_message_pattern.exec(ev.data);
-                if (matchArray) {
-                    apply_feedback(matchArray[1], matchArray[2]);
+                const match_array = web_socket_message_pattern.exec(ev.data);
+                if (match_array) {
+                    apply_feedback(match_array[1], match_array[2], false);
                 }
             }
         };
