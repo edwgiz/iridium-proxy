@@ -11,29 +11,32 @@
             background-color: black;
         }
         html, body {
-            height: 100%;
+            min-height: 100vh;
             margin: 0;
             padding: 0;
         }
 
+        body.login {
+            background: radial-gradient(ellipse at 30% 40%, rgba(0, 198, 214, 1) 0%, rgba(0, 126, 154, 1) 50%, rgba(0, 50, 131, 1) 100%);
+        }
+
         #login-container {
-            height: 100%;
-            min-height: 100%;
+            position: absolute;
+            top: 10vh;
+            width: 100vw;
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
-            row-gap: 30vw;
-            background: radial-gradient(ellipse at 30% 40%, rgba(0, 198, 214, 1) 0%, rgba(0, 126, 154, 1) 50%, rgba(0, 50, 131, 1) 100%);
+            row-gap: min(9vw, 9vh);
             font-size: xxx-large;
             letter-spacing: 4px;
             z-index: 1000;
         }
 
         input.login, button.login {
-            width: 80%;
-            font-size: 10vw;
-            padding: 1vw;
+            width: min(80vw, 80vh);
+            font-size: min(10vw, 10vh);
             text-align: center;
             font-family: sans-serif;
             outline: none;
@@ -128,7 +131,7 @@
 <body>
 <form id="login-container">
     <!--suppress HtmlUnknownTarget -->
-    <img src="/logo.png" alt="" style="margin-top: 20vw; margin-bottom: 20px">
+    <img src="/logo.png" alt="">
     <!--suppress HtmlFormInputWithoutLabel -->
     <input id="password" type="password" size="8" placeholder="password" class="login">
     <button id="submit-login" value="Login" class="login">Login</button>
@@ -163,7 +166,7 @@
                         socket.close();
                         socket = null;
                     }
-                    require_login('flex');
+                    require_login(true);
                     break;
                 default:
                     alert("Connection response status: " + xr.status + " " + xr.statusText);
@@ -178,9 +181,15 @@
     }
 
 
-    function require_login(display) {
-        main_container.style.display = display === "none" ? "block" : "none";
-        login_container.style.display = display;
+    function require_login(required) {
+        main_container.style.display = required ? "none" : "block";
+        login_container.style.display = required ? "flex" : "none";
+        let html_element_classes = document.body.classList;
+        if(required) {
+            html_element_classes.add("login");
+        } else {
+            html_element_classes.remove("login");
+        }
     }
 
 
@@ -191,7 +200,7 @@
         xr.setRequestHeader("Content-Type", "plain/text");
         xr.onload = function () {
             if (xr.status === 200) {
-                require_login('none')
+                require_login(false)
             } else {
                 alert("Login unsuccessful\n\n" + xr.responseText);
             }
@@ -231,8 +240,6 @@
         xr.send();
         const arr = JSON.parse(xr.responseText);
         const lighting_container = d.getElementById("lighting-container");
-        console.log(arr);
-
         arr.forEach((e) => {
             if (e[0] === "dimmer") {
                 const cell = d.createElement('div');
@@ -328,7 +335,9 @@
 
     function listen_feedbacks() {
         close_websocket();
-        socket = new WebSocket("wss://" + window.location.host + "/proxy/ws/");
+        console.log(window.location.protocol);
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(protocol + "//" + window.location.host + "/proxy/ws/");
         socket.onmessage = function (ev) {
             if (ev.type === "message") {
                 const matchArray = web_socket_message_pattern.exec(ev.data);
@@ -338,20 +347,14 @@
             }
         };
         socket.onopen = function () {
-            socket.send("Hello");
         }
         socket.onclose = function () {
             socket = null;
         }
     }
 
-
-    //        require_login('flex');
     init();
-
     read_all_feedbacks();
-//    listenFeedbacks();
-
 </script>
 </body>
 </html>
