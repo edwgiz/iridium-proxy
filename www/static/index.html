@@ -7,7 +7,7 @@
         html {
             font-family: sans-serif;
             user-select: none;
-            color: white;
+            color: #ffffff;
             background-color: black;
         }
         html, body {
@@ -79,7 +79,7 @@
             font-size: min(7vw, 7vh);
             letter-spacing: 4px;
             text-wrap: none;
-            color: white;
+            color: #ffffff;
             display: block;
             background-color: #FFFFFF20;
             border-radius: min(5vw, 5vh);
@@ -126,6 +126,19 @@
         /*noinspection CssUnusedSymbol*/
         input.feedback-slider::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffffff 73%, #ffffff 100%);
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > div > label.slider {
+            color: #ffff80;
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > div > input.command-slider-activated::-webkit-slider-thumb {
+            background: radial-gradient(circle, #ffff8030 0%, #ffff8030 53%, #ffff80 80%, #ffff80 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        #lighting-container > div > input.feedback-slider::-webkit-slider-thumb {
+            background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffff80 73%, #ffff80 100%);
         }
     </style>
 </head>
@@ -220,6 +233,7 @@
 
     function set_dimmer(ev) {
         const el = ev.target;
+        // noinspection JSCheckFunctionSignatures
         let newValue = Number.parseFloat(el.value);
         if (newValue > 0 && newValue < 10) {
             el.value = newValue < 5 ? 0 : 10;
@@ -305,6 +319,12 @@
 
     function on_command_slider_pointer_up(ev) {
         const el = ev.target;
+        // noinspection JSCheckFunctionSignatures
+        let newValue = Number.parseFloat(el.value);
+        if (newValue > 0 && newValue < 10) {
+            el.value = newValue < 5 ? 0 : 10;
+        }
+        // noinspection JSIncompatibleTypesComparison
         if(el.value === el.feedback_slider.value) {
             el.classList.remove("command-slider-activated");
         }
