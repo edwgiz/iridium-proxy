@@ -159,15 +159,12 @@
 
         /*noinspection CssUnusedSymbol*/
         input.switch-on {
-            background: radial-gradient(closest-corner, #2a2a2a 63%, #ffffff 100%);
+            background: radial-gradient(closest-corner, #2a2a2a 73%, #ffffff 100%);
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > input.switch-on {
-            background: radial-gradient(closest-corner, #2a2a2a 63%, #ffffff 100%);
-        }
-        /*noinspection CssUnusedSymbol*/
-        #lighting-container > input.switch:active {
-            background: radial-gradient(closest-corner, #2a2a2a 58%, #ffffff 100%);
+        input.switch:active {
+            background: radial-gradient(closest-corner, #2a2a2a 68%, #ffffff 100%);
+            border-style: none;
         }
 
         /*noinspection CssUnusedSymbol*/
@@ -183,26 +180,31 @@
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffff80 73%, #ffff80 100%);
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > input.switch {
+        input.switch.lighting {
             color: #ffff80;
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > input.switch-on {
+        input.switch-on.lighting {
             background: radial-gradient(closest-corner, #2a2a2a 73%, #ffff80 100%);
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > input.switch:active {
+        input.switch.lighting:active {
             background: radial-gradient(closest-corner, #2a2a2a 68%, #ffff80 100%);
             border-style: none;
         }
-
-        div.double-switch {
-            margin: min(5vw, 5vh);
-            height: min(10vw, 10vh);
-            background-color: #2A2A2A;
-            border-radius: min(5vw, 5vh);
+        /*noinspection CssUnusedSymbol*/
+        input.switch.vent {
+            color: #80ff80;
         }
-
+        /*noinspection CssUnusedSymbol*/
+        input.switch-on.vent {
+            background: radial-gradient(closest-corner, #2a2a2a 73%, #80ff80 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        input.switch.vent:active, input.switch-active.vent {
+            background: radial-gradient(closest-corner, #2a2a2a 68%, #80ff80 100%);
+            border-style: none;
+        }
     </style>
 </head>
 <body>
@@ -385,7 +387,7 @@
 
         const cell = d.createElement("input");
         cell.type = "button";
-        cell.classList.add("switch")
+        cell.classList.add("switch", "lighting")
         cell.value = label_text;
         cell.command = command_name;
         cell.command_value = true;
@@ -395,46 +397,21 @@
         return cell;
     }
 
-    function create_ventilation_double_switch(args) {
+    function create_fan_switch(args) {
         const command_name = args[1];
         const feedback_name = args[2];
         const label_text = args[3];
 
-        const cell = d.createElement('div');
-        cell.classList.add("double-switch");
-
-        let label = d.createElement('label');
-        label.classList.add("slider")
-        let text = d.createTextNode(label_text);
-        label.appendChild(text);
-        cell.appendChild(label);
-/*
-        const feedback_slider = d.createElement('input');
-        feedback_slider.classList.add("feedback-slider");
-        feedback_slider.type = "range";
-        feedback_slider.min = "0";
-        feedback_slider.max = "100";
-        feedback_slider.value = "0";
-        feedbacks[feedback_name] = feedback_slider;
-        cell.appendChild(feedback_slider);
-
-        const command_slider = d.createElement('input');
-        command_slider.classList.add("command-slider");
-        command_slider.type = "range";
-        command_slider.min = "0";
-        command_slider.max = "100";
-        command_slider.value = "0";
-        command_slider.command = command_name;
-        add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
-
-        command_slider.feedback_slider = feedback_slider;
-
-        command_slider.onchange = on_dimmer_changed;
-        cell.appendChild(command_slider);
-
-        feedback_slider.command_slider = command_slider;
-        feedback_slider.on_feedback_value = on_slider_feedback_value
-        feedback_slider.init_value = init_feedback_slider_value*/
+        const cell = d.createElement("input");
+        cell.type = "button";
+        cell.classList.add("switch", "vent")
+        cell.value = label_text;
+        cell.command_name = command_name;
+        cell.feedback_name = feedback_name;
+        cell.command_value = true;
+        cell.onclick = on_fan_switch_click;
+        cell.on_feedback_value = on_fan_switch_feedback_value
+        feedbacks[feedback_name] = cell;
         return cell;
     }
 
@@ -454,8 +431,8 @@
                 case 1:
                     cell = create_lighting_switch(e);
                     break;
-                case 3:
-                    cell = create_ventilation_double_switch(e);
+                case 2:
+                    cell = create_fan_switch(e);
                     break;
             }
             if(cell) {
@@ -478,7 +455,24 @@
         } else {
             el.classList.remove("switch-on");
         }
-  //      el.classList.remove("switch-activated");
+    }
+
+    function on_fan_switch_click(ev) {
+        ev.target.classList.add("switch-active");
+        let el = ev.target;
+        let command = el.command_value ? el.feedback_name : el.command_name;
+        let value = el.command_value ? "0" : "1";
+        send_command(command, value);
+    }
+
+    function on_fan_switch_feedback_value (el, value) {
+        el.command_value = Number.parseFloat(value) === 0;
+        if(el.command_value) {
+            el.classList.add("switch-on");
+        } else {
+            el.classList.remove("switch-on");
+        }
+        el.classList.remove("switch-active");
     }
 
 
