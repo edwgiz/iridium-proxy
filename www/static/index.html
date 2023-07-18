@@ -195,6 +195,14 @@
             background: radial-gradient(closest-corner, #2a2a2a 68%, #ffff80 100%);
             border-style: none;
         }
+
+        div.double-switch {
+            margin: min(5vw, 5vh);
+            height: min(10vw, 10vh);
+            background-color: #2A2A2A;
+            border-radius: min(5vw, 5vh);
+        }
+
     </style>
 </head>
 <body>
@@ -327,68 +335,127 @@
         el.addEventListener(up_signal_name, up, false);
     }
 
+    function create_lighting_slider(args) {
+        const command_name = args[1];
+        const feedback_name = args[2];
+        const label_text = args[3];
+
+        const cell = d.createElement('div');
+        cell.classList.add("slider");
+
+        let label = d.createElement('label');
+        label.classList.add("slider")
+        let text = d.createTextNode(label_text);
+        label.appendChild(text);
+        cell.appendChild(label);
+
+        const feedback_slider = d.createElement('input');
+        feedback_slider.classList.add("feedback-slider");
+        feedback_slider.type = "range";
+        feedback_slider.min = "0";
+        feedback_slider.max = "100";
+        feedback_slider.value = "0";
+        feedbacks[feedback_name] = feedback_slider;
+        cell.appendChild(feedback_slider);
+
+        const command_slider = d.createElement('input');
+        command_slider.classList.add("command-slider");
+        command_slider.type = "range";
+        command_slider.min = "0";
+        command_slider.max = "100";
+        command_slider.value = "0";
+        command_slider.command = command_name;
+        add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
+
+        command_slider.feedback_slider = feedback_slider;
+
+        command_slider.onchange = on_dimmer_changed;
+        cell.appendChild(command_slider);
+
+        feedback_slider.command_slider = command_slider;
+        feedback_slider.on_feedback_value = on_slider_feedback_value
+        feedback_slider.init_value = init_feedback_slider_value
+        return cell;
+    }
+
+    function create_lighting_switch(args) {
+        const command_name = args[1];
+        const feedback_name = args[2];
+        const label_text = args[3];
+
+        const cell = d.createElement("input");
+        cell.type = "button";
+        cell.classList.add("switch")
+        cell.value = label_text;
+        cell.command = command_name;
+        cell.command_value = true;
+        cell.onclick = on_switch_click;
+        cell.on_feedback_value = on_switch_feedback_value
+        feedbacks[feedback_name] = cell;
+        return cell;
+    }
+
+    function create_ventilation_double_switch(args) {
+        const command_name = args[1];
+        const feedback_name = args[2];
+        const label_text = args[3];
+
+        const cell = d.createElement('div');
+        cell.classList.add("double-switch");
+
+        let label = d.createElement('label');
+        label.classList.add("slider")
+        let text = d.createTextNode(label_text);
+        label.appendChild(text);
+        cell.appendChild(label);
+/*
+        const feedback_slider = d.createElement('input');
+        feedback_slider.classList.add("feedback-slider");
+        feedback_slider.type = "range";
+        feedback_slider.min = "0";
+        feedback_slider.max = "100";
+        feedback_slider.value = "0";
+        feedbacks[feedback_name] = feedback_slider;
+        cell.appendChild(feedback_slider);
+
+        const command_slider = d.createElement('input');
+        command_slider.classList.add("command-slider");
+        command_slider.type = "range";
+        command_slider.min = "0";
+        command_slider.max = "100";
+        command_slider.value = "0";
+        command_slider.command = command_name;
+        add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
+
+        command_slider.feedback_slider = feedback_slider;
+
+        command_slider.onchange = on_dimmer_changed;
+        cell.appendChild(command_slider);
+
+        feedback_slider.command_slider = command_slider;
+        feedback_slider.on_feedback_value = on_slider_feedback_value
+        feedback_slider.init_value = init_feedback_slider_value*/
+        return cell;
+    }
+
     function init() {
         feedbacks.length = 0;
         const xr = new XMLHttpRequest();
-        xr.open("GET", "/lighting.json", false);
+        xr.open("GET", "/config.json", false);
         xr.send();
         const arr = JSON.parse(xr.responseText);
         const lighting_container = d.getElementById("lighting-container");
         arr.forEach((e) => {
-            const command_name = e[1];
-            const feedback_name = e[2];
-            const label_text = e[3];
             let cell = null;
             switch (e[0]) {
-                case "dimmer":
-                    cell = d.createElement('div');
-                    cell.classList.add("slider");
-
-                    let label = d.createElement('label');
-                    label.classList.add("slider")
-                    let text = d.createTextNode(label_text);
-                    label.appendChild(text);
-                    cell.appendChild(label);
-
-                    const feedback_slider = d.createElement('input');
-                    feedback_slider.classList.add("feedback-slider");
-                    feedback_slider.type = "range";
-                    feedback_slider.min = "0";
-                    feedback_slider.max = "100";
-                    feedback_slider.value = "0";
-                    feedbacks[feedback_name] = feedback_slider;
-                    cell.appendChild(feedback_slider);
-
-                    const command_slider = d.createElement('input');
-                    command_slider.classList.add("command-slider");
-                    command_slider.type = "range";
-                    command_slider.min = "0";
-                    command_slider.max = "100";
-                    command_slider.value = "0";
-                    command_slider.command = command_name;
-                    add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
-
-                    command_slider.feedback_slider = feedback_slider;
-
-                    command_slider.onchange = on_dimmer_changed;
-                    cell.appendChild(command_slider);
-
-                    feedback_slider.command_slider = command_slider;
-                    feedback_slider.on_feedback_value = on_slider_feedback_value
-                    feedback_slider.init_value = init_feedback_slider_value
-
-                    lighting_container.appendChild(cell);
+                case 0:
+                    cell = create_lighting_slider(e);
                     break;
-                case "switch":
-                    cell = d.createElement("input");
-                    cell.type = "button";
-                    cell.classList.add("switch")
-                    cell.value = label_text;
-                    cell.command = command_name;
-                    cell.command_value = true;
-                    cell.onclick = on_switch_click;
-                    cell.on_feedback_value = on_switch_feedback_value
-                    feedbacks[feedback_name] = cell;
+                case 1:
+                    cell = create_lighting_switch(e);
+                    break;
+                case 3:
+                    cell = create_ventilation_double_switch(e);
                     break;
             }
             if(cell) {
