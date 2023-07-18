@@ -121,12 +121,9 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        input.command-slider-activated::-webkit-slider-thumb,
-        /*
-        input.switch-activated {
+        input.command-slider-activated::-webkit-slider-thumb {
             background: radial-gradient(circle, #ffffff30 0%, #ffffff30 53%, #ffffff 80%, #ffffff 100%);
         }
-        */
 
         /*noinspection CssUnusedSymbol*/
         input.feedback-slider::-webkit-slider-thumb {
@@ -322,12 +319,12 @@
     function add_touch_listeners(el, down, up) {
         let down_signal_name;
         let up_signal_name;
-        if (window.PointerEvent) {
-            down_signal_name = "pointerdown";
-            up_signal_name = "pointerup";
-        } else if (window.TouchEvent) {
+        if (window.TouchEvent) {
             down_signal_name = "touchstart";
             up_signal_name = "touchend";
+        } else if (window.PointerEvent) {
+            down_signal_name = "pointerdown";
+            up_signal_name = "pointerup";
         } else {
             down_signal_name = "mousedown";
             up_signal_name = "mouseup";
