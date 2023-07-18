@@ -168,15 +168,15 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > div > label.slider {
+        label.slider.lighting {
             color: #ffff80;
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > div > input.command-slider-activated::-webkit-slider-thumb {
+        input.command-slider-activated.lighting::-webkit-slider-thumb {
             background: radial-gradient(circle, #ffff8030 0%, #ffff8030 53%, #ffff80 80%, #ffff80 100%);
         }
         /*noinspection CssUnusedSymbol*/
-        #lighting-container > div > input.feedback-slider::-webkit-slider-thumb {
+        input.feedback-slider.lighting::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffff80 73%, #ffff80 100%);
         }
         /*noinspection CssUnusedSymbol*/
@@ -216,7 +216,6 @@
     <button id="submit-login" value="Login" class="login">Login</button>
 </form>
 <div id="main-container">
-    <div id="lighting-container"></div>
 </div>
 
 <script>
@@ -346,13 +345,13 @@
         cell.classList.add("slider");
 
         let label = d.createElement('label');
-        label.classList.add("slider")
+        label.classList.add("slider", "lighting")
         let text = d.createTextNode(label_text);
         label.appendChild(text);
         cell.appendChild(label);
 
         const feedback_slider = d.createElement('input');
-        feedback_slider.classList.add("feedback-slider");
+        feedback_slider.classList.add("feedback-slider", "lighting");
         feedback_slider.type = "range";
         feedback_slider.min = "0";
         feedback_slider.max = "100";
@@ -361,7 +360,7 @@
         cell.appendChild(feedback_slider);
 
         const command_slider = d.createElement('input');
-        command_slider.classList.add("command-slider");
+        command_slider.classList.add("command-slider", "lighting");
         command_slider.type = "range";
         command_slider.min = "0";
         command_slider.max = "100";
@@ -421,7 +420,6 @@
         xr.open("GET", "/config.json", false);
         xr.send();
         const arr = JSON.parse(xr.responseText);
-        const lighting_container = d.getElementById("lighting-container");
         arr.forEach((e) => {
             let cell = null;
             switch (e[0]) {
@@ -436,7 +434,7 @@
                     break;
             }
             if(cell) {
-                lighting_container.appendChild(cell);
+                main_container.appendChild(cell);
             }
         });
     }
