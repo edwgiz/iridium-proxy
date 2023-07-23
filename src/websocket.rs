@@ -1,23 +1,23 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use const_format::formatcp;
-use futures::{SinkExt, StreamExt};
+use crossbeam_channel;
+use crossbeam_channel::{Receiver, Sender};
+use futures::SinkExt;
 use futures::stream::SplitSink;
+use futures::StreamExt;
 use once_cell::sync::Lazy;
-use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 use url::Url;
-
 
 //noinspection RsUnusedImport
 const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
 
 /// Additional runtime is required to don't block main tokio's one
-static RUNTIME: Lazy<Runtime> = Lazy::new(|| tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap());
+pub static CROSSBEAM_MESSAGE_BUS: Lazy<(Sender<String>, Receiver<String>)> = Lazy::new(subscribe);
 
 
 pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
@@ -52,35 +52,54 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
 
 fn read_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
     let future = async move {
-        let url = Url::parse(PROXY_WEBSOCKET_URL).unwrap();
-        let (mut remote_socket, _) =
-            tungstenite::client::connect(url).unwrap();
-        while remote_active.load(Ordering::Relaxed) {
-            let result = remote_socket.read_message();
-            if result.is_err() {
-                break;
-            }
-            let msg = result.expect("Assert having message");
-            if msg.is_close() {
-                break;
-            }
-            if msg.is_text() {
-                let txt = msg.into_text();
-                if txt.is_ok() {
-                    let success = local_ws_tx.send(warp::ws::Message::text(txt.unwrap())).await.is_ok();
-                    if !success {
-                        break;
-                    }
+        let receiver = CROSSBEAM_MESSAGE_BUS.1.to_owned();
+        while remote_active.load(Ordering::SeqCst) {
+            let success: bool;
+            match receiver.recv_timeout(Duration::from_secs(30)) {
+                Ok(txt) => {
+                    success = local_ws_tx.send(warp::ws::Message::text(txt)).await.is_ok();
+                }
+                Err(rte) => {
+                    success = !rte.is_disconnected();
                 }
             }
+            if !success {
+                remote_active.store(false, Ordering::SeqCst);
+            }
         }
-        remote_socket.close(Some(tungstenite::protocol::CloseFrame {
-            code: tungstenite::protocol::frame::coding::CloseCode::Normal,
-            reason: Default::default(),
-        })).unwrap_or_default();
         local_ws_tx.close().await.unwrap_or_default();
         return true;
     };
 
-    return RUNTIME.spawn(future);
+    return tokio::spawn(future);
+}
+
+
+pub fn subscribe() -> (Sender<String>, Receiver<String>) {
+    let message_bus = crossbeam_channel::bounded(64);
+    let sender = message_bus.0.clone();
+    tokio::spawn(async move {
+        let url = Url::parse(PROXY_WEBSOCKET_URL).unwrap();
+        loop {
+            if let Ok((mut remote_socket, _)) = tungstenite::client::connect(url.clone()) {
+                while let Ok(msg) = remote_socket.read_message() {
+                    if msg.is_close() {
+                        break;
+                    }
+                    if msg.is_text() {
+                        if let Ok(txt) = msg.into_text() {
+                            let _ = sender.try_send(txt).is_ok();
+                        }
+                    }
+                }
+                remote_socket.close(Some(tungstenite::protocol::CloseFrame {
+                    code: tungstenite::protocol::frame::coding::CloseCode::Normal,
+                    reason: Default::default(),
+                })).unwrap_or_default();
+            } else {
+                std::thread::sleep(Duration::from_secs(30));
+            }
+        }
+    });
+    return message_bus;
 }

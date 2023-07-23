@@ -1,13 +1,15 @@
 use core::result::Result;
 use std::convert::Infallible;
 use std::include_bytes;
+use std::ops::Deref;
 
 use const_format::formatcp;
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use rust_embed::RustEmbed;
 use warp::Filter;
 
 mod commons;
+mod log;
 mod websocket;
 
 
@@ -20,16 +22,17 @@ struct StaticResources;
 #[include = "*.pem"]
 struct TlsResources;
 
-static PROXY_URL_BASE: &'static str = formatcp!("http://{}/", commons::PROXY_HOST);
+//noinspection HttpUrlsUsage
+const PROXY_URL_BASE: &'static str = formatcp!("http://{}/", commons::PROXY_HOST);
 const PASSWORD: &'static [u8] = "edwgiz".as_bytes();
-static PROXY_CLIENT: OnceCell<reqwest::Client> = OnceCell::new();
+static PROXY_CLIENT: Lazy<reqwest::Client> = Lazy::new(proxy_client);
 
 async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hyper::Body>, warp::Rejection> {
     let mut local_response = warp::http::Response::builder();
     let mut status_code = warp::http::status::StatusCode::NOT_ACCEPTABLE;
 
     if body.eq(PASSWORD) {
-        let proxy_client = proxy_client();
+        let proxy_client = PROXY_CLIENT.deref();
 
         let remote_request = proxy_client
             .request(reqwest::Method::POST, PROXY_URL_BASE)
@@ -46,9 +49,13 @@ async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hy
             .map_err(warp::reject::custom)?;
 
 
-        let success = remote_response
+        let set_cookie = remote_response
             .headers()
-            .get(reqwest::header::SET_COOKIE)
+            .get(reqwest::header::SET_COOKIE);
+
+
+
+        let success = set_cookie
             .map_or(false, |header_value| {
                 return header_value.to_str().map_or(false, |str| {
                     return str.starts_with("ir-session-id=");
@@ -112,17 +119,15 @@ async fn call_proxy(
         .map_err(warp::reject::custom);
 }
 
-fn proxy_client<'a>() -> &'a reqwest::Client {
-    PROXY_CLIENT.get_or_init(|| {
-        return reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("Default reqwest client couldn't build");
-    })
+fn proxy_client() -> reqwest::Client {
+    return reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Default reqwest client couldn't build");
 }
 
 pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
-    let  reply:Box<dyn warp::Reply>;
+    let reply: Box<dyn warp::Reply>;
     let authorized = call_proxy_ok(cookie).await;
     if authorized {
         reply = Box::new(ws.on_upgrade(move |local_socket| websocket::on_websocket_upgrade(local_socket)));
@@ -131,7 +136,6 @@ pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws
     }
     return Ok(reply);
 }
-
 
 
 async fn call_proxy_ok(cookie: Option<hyper::header::HeaderValue>) -> bool {
@@ -156,39 +160,46 @@ async fn call_proxy_ok(cookie: Option<hyper::header::HeaderValue>) -> bool {
     });
 }
 
+fn main() {
+    log::init();
 
-#[tokio::main]
-async fn main() {
-    println!("Started...");
-    let proxy_http_route = warp::path("proxy")
-        .and(warp::header::optional("cookie"))
-        .and(warp::path::tail())
-        .and(warp::query::raw())
-        .and_then(call_proxy)
-        .boxed();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
 
-    let proxy_login_http_route = warp::post()
-        .and(warp::path("login"))
-        .and(warp::body::bytes())
-        .and_then(call_proxy_login)
-        .boxed();
+    runtime.block_on(async {
+        let proxy_http_route = warp::path("proxy")
+            .and(warp::header::optional("cookie"))
+            .and(warp::path::tail())
+            .and(warp::query::raw())
+            .and_then(call_proxy)
+            .boxed();
 
-    let proxy_websocket_route = warp::path("proxy")
-        .and(warp::header::optional("cookie"))
-        .and(warp::ws())
-        .and_then(local_websocket_handler)
-        .boxed();
+        let proxy_login_http_route = warp::post()
+            .and(warp::path("login"))
+            .and(warp::body::bytes())
+            .and_then(call_proxy_login)
+            .boxed();
 
-    let static_resources = warp_embed::embed(&StaticResources {});
-    warp::serve(
-        proxy_http_route
-            .or(proxy_login_http_route)
-            .or(static_resources)
-            .or(proxy_websocket_route)
-            .boxed())
-        .tls()
-        .cert(include_bytes!("../www/tls/cert.pem"))
-        .key(include_bytes!("../www/tls/key.pem"))
-        .run(([0, 0, 0, 0], 1443))
-        .await;
+        let proxy_websocket_route = warp::path("proxy")
+            .and(warp::header::optional("cookie"))
+            .and(warp::ws())
+            .and_then(local_websocket_handler)
+            .boxed();
+
+        let static_resources = warp_embed::embed(&StaticResources {});
+        warp::serve(
+            proxy_http_route
+                .or(proxy_login_http_route)
+                .or(static_resources)
+                .or(proxy_websocket_route)
+                .boxed())
+            .tls()
+            .cert(include_bytes!("../www/tls/cert.pem"))
+            .key(include_bytes!("../www/tls/key.pem"))
+            .run(([0, 0, 0, 0], 1443))
+            .await;
+    });
 }
