@@ -11,7 +11,7 @@ warp = { version = "*", default-features = false, features = ["tls"] } # exists 
 tokio = { version = "*", default-features = false, features = ["macros", "rt-multi-thread"] } # exists in reqwest, warp
 rust-embed = { version = "*", default-features = false, features = ["include-exclude"] } # exists in warp-embed
 warp-embed = { version = "0.4.0", default-features = false }
-reqwest = { version = "0.11.18", default-features = false, features = ["stream", "wasm-streams"] }
+reqwest = { version = "0.11.18", default-features = false, features = ["stream", "wasm-streams", "json"] }
 tungstenite = { version = "*", default-features = false } # exists in warp::tokio-tungstenite,
 once_cell = { version = "*", default-features = false } # exists in reqwest::tracing::tracing-core
 thiserror = { version = "*", default-features = false } # exists in tungstenite
@@ -20,5 +20,9 @@ url = { version = "*", default-features = false } # exists in reqwest
 const_format = { version = "0.2.31", default-features = false }
 crossbeam-channel = { version = "0.5.8" }
 tracing = { version = "*", features = ["max_level_debug"] }# exists in warp::tokio
-tracing-subscriber = { version = "*", features = ["local-time", "time"] }# exists in tracing
-time = { version = "0.3.23", features = ["macros"] }# exists in tracing-subscriber
+tracing-subscriber = { version = "*", features = ["local-time", "time", "fmt"], default-features = false }# exists in tracing
+time = { version = "*", features = ["macros"], default-features = false }# exists in tracing-subscriber
+lru = { version = "0.11.0", default-features = false }
+rand = { version = "*", default-features = false }# exists in tungstenite
+regex = { version = "*", default-features = false }# exusts in rust-embed::rust-embed-impl::rust-embed-utils::globset
+serde = { version = "*", features = ["derive"], default-features = false }# exists in warp

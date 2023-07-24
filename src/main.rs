@@ -1,16 +1,19 @@
 use core::result::Result;
 use std::convert::Infallible;
 use std::include_bytes;
-use std::ops::Deref;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
-use const_format::formatcp;
-use once_cell::sync::Lazy;
+use lru::LruCache;
+use rand::RngCore;
 use rust_embed::RustEmbed;
+use tokio::sync::Mutex;
 use warp::Filter;
 
 mod commons;
 mod log;
 mod websocket;
+mod iridium;
 
 
 #[derive(RustEmbed)]
@@ -23,52 +26,27 @@ struct StaticResources;
 struct TlsResources;
 
 //noinspection HttpUrlsUsage
-const PROXY_URL_BASE: &'static str = formatcp!("http://{}/", commons::PROXY_HOST);
-const PASSWORD: &'static [u8] = "edwgiz".as_bytes();
-static PROXY_CLIENT: Lazy<reqwest::Client> = Lazy::new(proxy_client);
+const WEB_PASSWORD: &'static [u8] = b"edwgiz";
 
-async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hyper::Body>, warp::Rejection> {
+async fn login(body: hyper::body::Bytes, auth_db: Arc<Mutex<LruCache<u64, u64>>>) -> Result<hyper::Response<hyper::Body>, warp::Rejection> {
     let mut local_response = warp::http::Response::builder();
     let mut status_code = warp::http::status::StatusCode::NOT_ACCEPTABLE;
 
-    if body.eq(PASSWORD) {
-        let proxy_client = PROXY_CLIENT.deref();
-
-        let remote_request = proxy_client
-            .request(reqwest::Method::POST, PROXY_URL_BASE)
-            .header(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_str("application/x-www-form-urlencoded").unwrap())
-            .body("Password=2007&name=authform&Login=admin")
-            .build()
-            .map_err(commons::Error::Request)
-            .map_err(warp::reject::custom)?;
-
-        let remote_response = proxy_client
-            .execute(remote_request)
-            .await
-            .map_err(commons::Error::Request)
-            .map_err(warp::reject::custom)?;
-
-
-        let set_cookie = remote_response
-            .headers()
-            .get(reqwest::header::SET_COOKIE);
-
-
-
-        let success = set_cookie
-            .map_or(false, |header_value| {
-                return header_value.to_str().map_or(false, |str| {
-                    return str.starts_with("ir-session-id=");
-                });
-            });
-
-        if success {
-            status_code = warp::http::status::StatusCode::OK;
-            local_response = local_response.status(warp::http::status::StatusCode::OK);
-            for (k, v) in remote_response.headers().iter() {
-                local_response = local_response.header(k, v);
+    if body.eq(WEB_PASSWORD) {
+        let now = u64::try_from(time::Instant::now().elapsed().whole_milliseconds()).unwrap();
+        use rand::prelude::StdRng;
+        use rand::prelude::SeedableRng;
+        let session_id = StdRng::seed_from_u64(now).next_u64();
+        match auth_db.lock().await {
+            mut auth_db => {
+                auth_db.push(session_id.clone(), now);
             }
         }
+        let session_id = format!("{:X}", session_id);
+        let cookie_value = format!("session_id={session_id}; Path=/; Max-Age=2147483647");
+        local_response = local_response.header( warp::http::header::SET_COOKIE, cookie_value);
+
+        status_code = warp::http::status::StatusCode::OK;
     }
 
     return local_response
@@ -79,86 +57,26 @@ async fn call_proxy_login(body: hyper::body::Bytes) -> Result<hyper::Response<hy
 }
 
 
-async fn call_proxy(
-    cookie: Option<warp::http::HeaderValue>,
-    tail_path: warp::path::Tail,
-    query: String,
-) -> Result<warp::http::Response<hyper::Body>, warp::Rejection> {
-    let mut remote_uri: String = PROXY_URL_BASE.to_string();
-    remote_uri.push_str(tail_path.as_str());
-    if !query.is_empty() {
-        remote_uri.push('?');
-        remote_uri.push_str(query.as_str());
+pub async fn local_websocket_handler(session_id: Option<String>, auth_db: Arc<Mutex<LruCache<u64, u64>>>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
+    let mut auth_flag = false;
+    if let Some(session_id) = session_id {
+        if let Ok(session_id) = u64::from_str_radix(session_id.as_str(), 16) {
+            match auth_db.lock().await {
+                mut auth_db => {
+                    auth_flag = auth_db.get(&session_id).is_some();
+                }
+            }
+        }
     }
-
-    let proxy_client = proxy_client();
-
-    let mut remote_request_builder = proxy_client
-        .request(reqwest::Method::GET, remote_uri);
-    for v in cookie.iter() {
-        remote_request_builder = remote_request_builder.header("cookie", v.clone());
-    }
-    let remote_request = remote_request_builder.build()
-        .map_err(commons::Error::Request)
-        .map_err(warp::reject::custom)?;
-
-    let remote_response = proxy_client
-        .execute(remote_request)
-        .await
-        .map_err(commons::Error::Request)
-        .map_err(warp::reject::custom)?;
-
-    let mut local_response = warp::http::Response::builder();
-    for (k, v) in remote_response.headers().iter() {
-        local_response = local_response.header(k, v);
-    }
-    return local_response
-        .status(remote_response.status())
-        .body(hyper::Body::wrap_stream(remote_response.bytes_stream()))
-        .map_err(commons::Error::Http)
-        .map_err(warp::reject::custom);
-}
-
-fn proxy_client() -> reqwest::Client {
-    return reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .expect("Default reqwest client couldn't build");
-}
-
-pub async fn local_websocket_handler(cookie: Option<warp::http::HeaderValue>, ws: warp::ws::Ws) -> Result<impl warp::Reply, Infallible> {
     let reply: Box<dyn warp::Reply>;
-    let authorized = call_proxy_ok(cookie).await;
-    if authorized {
-        reply = Box::new(ws.on_upgrade(move |local_socket| websocket::on_websocket_upgrade(local_socket)));
+    if auth_flag {
+        reply = Box::new(ws.on_upgrade(websocket::on_websocket_upgrade));
     } else {
-        reply = Box::new(warp::http::StatusCode::NOT_ACCEPTABLE);
+        reply = Box::new(ws.on_upgrade(websocket::websocket_unauthorized));
     }
     return Ok(reply);
 }
 
-
-async fn call_proxy_ok(cookie: Option<hyper::header::HeaderValue>) -> bool {
-    let mut remote_uri: String = PROXY_URL_BASE.to_string();
-    remote_uri.push_str("json/ok");
-
-    let proxy_client = proxy_client();
-
-    let mut remote_request_builder = proxy_client
-        .request(reqwest::Method::GET, remote_uri);
-    for v in cookie.iter() {
-        remote_request_builder = remote_request_builder.header("cookie", v.clone());
-    }
-    let remote_request = remote_request_builder.build().unwrap();
-
-    let remote_response_result = proxy_client
-        .execute(remote_request)
-        .await;
-
-    return remote_response_result.map_or(false, |v| {
-        v.status() == reqwest::StatusCode::OK
-    });
-}
 
 fn main() {
     log::init();
@@ -170,29 +88,28 @@ fn main() {
         .unwrap();
 
     runtime.block_on(async {
-        let proxy_http_route = warp::path("proxy")
-            .and(warp::header::optional("cookie"))
-            .and(warp::path::tail())
-            .and(warp::query::raw())
-            .and_then(call_proxy)
-            .boxed();
+        let mut auth_cache: LruCache<u64, u64> = LruCache::new(NonZeroUsize::new(32).unwrap());
+        auth_cache.push(u64::from_str_radix("F9681A64D3301861", 16).unwrap(), u64::MAX);
+        let auth_cache = Arc::new(Mutex::new(auth_cache));
+        let auth_cache = warp::any().map(move || Arc::clone(&auth_cache));
 
-        let proxy_login_http_route = warp::post()
+        let login_route = warp::post()
             .and(warp::path("login"))
             .and(warp::body::bytes())
-            .and_then(call_proxy_login)
+            .and(auth_cache.clone())
+            .and_then(login)
             .boxed();
 
         let proxy_websocket_route = warp::path("proxy")
-            .and(warp::header::optional("cookie"))
+            .and(warp::cookie::optional("session_id"))
+            .and(auth_cache.clone())
             .and(warp::ws())
             .and_then(local_websocket_handler)
             .boxed();
 
         let static_resources = warp_embed::embed(&StaticResources {});
         warp::serve(
-            proxy_http_route
-                .or(proxy_login_http_route)
+            login_route
                 .or(static_resources)
                 .or(proxy_websocket_route)
                 .boxed())

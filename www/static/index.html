@@ -221,41 +221,6 @@
     const main_container = d.getElementById('main-container');
     let socket = null;
 
-    function read_feedbacks(url) {
-        const xr = new XMLHttpRequest();
-        xr.open("GET", url, true);
-        xr.onload = function () {
-            switch (xr.status) {
-                case 200:
-                    const response = JSON.parse(xr.responseText);
-                    // noinspection JSUnresolvedReference
-                    response.tags.forEach(e => {
-                        apply_feedback(e[1], e[3], true);
-                    });
-                    if (!socket) {
-                        listen_feedbacks();
-                    }
-                    break;
-                case 406:
-                    if(socket) {
-                        socket.close();
-                        socket = null;
-                    }
-                    require_login(true);
-                    break;
-                default:
-                    alert("Connection response status: " + xr.status + " " + xr.statusText);
-                    break;
-            }
-        };
-        xr.send();
-    }
-
-    function read_all_feedbacks() {
-        read_feedbacks("/proxy/json/tags/server/tags/get?from=0&count=999&what=tags");
-    }
-
-
     function require_login(required) {
         main_container.style.display = required ? "none" : "block";
         login_container.style.display = required ? "flex" : "none";
@@ -301,11 +266,9 @@
     }
 
     function send_command(command_name, value) {
-        const xr = new XMLHttpRequest();
-        xr.open("GET", "/proxy/json/ok/server/channel/set?name="
-            + command_name
-            + "&value=" + value, false);
-        xr.send();
+        if(socket) {
+            socket.send(command_name + ';' + value)
+        }
     }
 
     function on_dimmer_changed(ev) {
@@ -531,14 +494,21 @@
             }
         };
         socket.onopen = function () {
+            console.debug("Connected")
         }
-        socket.onclose = function () {
+        socket.onclose = function (ev) {
             socket = null;
+            if(ev.reason === 'unauthorized') {
+                require_login(true);
+            } else {
+                console.log("Reconnect in 1 min...")
+                setTimeout(listen_feedbacks, 60_000);
+            }
         }
     }
 
     init();
-    read_all_feedbacks();
+    listen_feedbacks();
 </script>
 </body>
 </html>

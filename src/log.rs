@@ -11,7 +11,7 @@ pub fn init() {
     );
 
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::INFO)
         .with_thread_names(true)
         .with_timer(local_time)
         .compact()
