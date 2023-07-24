@@ -280,21 +280,20 @@
     const feedbacks = {};
 
     function add_touch_listeners(el, down, up) {
-        let down_signal_name;
-        let up_signal_name;
         if (window.TouchEvent) {
-            down_signal_name = "touchstart";
-            up_signal_name = "touchend";
-        } else if (window.PointerEvent) {
-            down_signal_name = "pointerdown";
-            up_signal_name = "pointerup";
-        } else {
-            down_signal_name = "mousedown";
-            up_signal_name = "mouseup";
+            el.addEventListener("touchstart", down, false);
+            el.addEventListener("touchend", up, false);
         }
-        el.addEventListener(down_signal_name, down, false);
-        el.addEventListener(up_signal_name, up, false);
+        if (window.PointerEvent) {
+            el.addEventListener("pointerdown", down, false);
+            el.addEventListener("pointerup", up, false);
+        }
+        if (window.MouseEvent) {
+            el.addEventListener("mousedown", down, false);
+            el.addEventListener("mouseup", up, false);
+        }
     }
+
 
     function create_lighting_slider(args) {
         const command_name = args[1];
