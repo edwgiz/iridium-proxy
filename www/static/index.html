@@ -416,10 +416,8 @@
 
         function speed_to_slider_value(speed_fact) {
             if (is_pwr_on()) {
-                console.log("is_pwr_on");
                 return Math.max(0, 10 + 90 * (speed_fact - 30) / 70);
             } else {
-                console.log("is_pwr_off");
                 return 0;
             }
         }
@@ -448,7 +446,7 @@
             const old_pwr_btn_state = feedback_slider.pwr_btn_state;
             const old_ui_speed_target = is_pwr_on() ? feedback_slider.speed_target : 0;
 
-            let new_value = Number.parseInt(this.value);
+            let new_value = Number.parseInt(command_slider.value);
             let new_speed_target;
             if (new_value <= 5) {
                 new_value = 0;
@@ -461,16 +459,14 @@
                 new_value = new_speed_target * (90 / 7) + 10;
                 new_speed_target = Math.floor(new_speed_target + 3);
             }
+            command_slider.value = new_value.toString();
             if(new_speed_target > 0) {
                 feedback_slider.pwr_btn_state = 1;
             }
             const new_ui_speed_target = scale_speed_target_for_ui(new_speed_target);
             refresh_activation_style();
-            console.log("feedback_slider.speed_target 1: " + feedback_slider.speed_target);
             if (old_ui_speed_target !== new_ui_speed_target) {
-                console.log("feedback_slider.speed_target 2: " + feedback_slider.speed_target);
                 feedback_slider.speed_target = new_ui_speed_target;
-                command_slider.value = new_value.toString();
                 send_command("Breezart.SpeedTarget", new_speed_target);
                 if (new_speed_target === 0) {
                     if (old_pwr_btn_state !== 0) {
