@@ -53,8 +53,6 @@ pub mod http_client {
         return false;
     }
 
-    const EMPTY_QUERY: &str = "";
-
     async fn invoke_remote(path: &str, query: &[(&str, &str)]) -> Result<Response, &'static str> {
         let login_attempts = 3;
         'attempts: for _i in 1..login_attempts {
@@ -94,17 +92,21 @@ pub mod http_client {
 
     #[derive(Deserialize)]
     pub(crate) struct TagsBody {
+        #[allow(dead_code)]
         tags_count: String,
         pub tags: Vec<TagRow>
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     pub(crate) struct TagRow {
         pub id: u32,
         pub name: String,
+        #[allow(dead_code)]
         suffix: String,
         pub value: String,
+        #[allow(dead_code)]
         data_type: String,
+        #[allow(dead_code)]
         zero: String
     }
 
