@@ -60,9 +60,14 @@
             max-width: 120vh;
         }
 
+        :root {
+            --control-margin: min(5vw, 5vh);
+            --control-margin-rigth: min(10vw, 10vh);
+        }
+
         /*noinspection CssUnusedSymbol*/
         div.slider {
-            margin: min(5vw, 5vh);
+            margin: var(--control-margin) var(--control-margin-rigth) var(--control-margin) var(--control-margin);
             position: relative;
             height: min(10vw, 10vh);
             text-align: center;
@@ -138,9 +143,9 @@
 
         /*noinspection CssUnusedSymbol*/
         input.switch {
-            margin: min(5vw, 5vh);
+            margin: var(--control-margin) var(--control-margin-rigth) var(--control-margin) var(--control-margin);
             position: relative;
-            width: calc(100% - min(10vw, 10vh));
+            width: calc(100% - min(15vw, 15vh));
             height: min(10vw, 10vh);
             text-align: center;
             line-height: min(10vw, 10vh);
@@ -405,17 +410,24 @@
         feedback_slider.max = "100";
         feedback_slider.value = "0";
 
-        function speed_fact_to_slider_value(speed_fact) {
-            return Math.max(0, 10 + 90 * (speed_fact - 30) / 70);
+        function is_pwr_on() {
+            return feedback_slider.pwr_btn_state === 1 && feedback_slider.speed_fact !== 255;
+        }
+
+        function speed_to_slider_value(speed_fact) {
+            if (is_pwr_on()) {
+                console.log("is_pwr_on");
+                return Math.max(0, 10 + 90 * (speed_fact - 30) / 70);
+            } else {
+                console.log("is_pwr_off");
+                return 0;
+            }
         }
 
         feedback_slider.apply_state = function () {
+            feedback_slider.value = speed_to_slider_value(feedback_slider.speed_fact).toString();
+            command_slider.value = is_pwr_on() ? speed_to_slider_value(feedback_slider.speed_target).toString() : "0";
             refresh_activation_style();
-            if (this.pwr_btn_state === 1 || this.unit_state === 1 || this.speed_fact !== 255) {
-                this.value = speed_fact_to_slider_value(this.speed_fact);
-            } else {
-                this.value = 0;
-            }
         }
 
 
@@ -433,51 +445,50 @@
         }
 
         function onchange(_ev) {
+            const old_pwr_btn_state = feedback_slider.pwr_btn_state;
+            const old_ui_speed_target = is_pwr_on() ? feedback_slider.speed_target : 0;
+
             let new_value = Number.parseInt(this.value);
-            let speed_target;
+            let new_speed_target;
             if (new_value <= 5) {
                 new_value = 0;
-                speed_target = 0;
+                new_speed_target = 0;
             } else if (new_value === 100) {
-                speed_target = 10;
+                new_speed_target = 10;
             } else {
                 new_value = Math.max(10, new_value);
-                speed_target = Math.floor((new_value - 10 + (90 / 7) / 2) / (90 / 7));
-                new_value = speed_target * (90 / 7) + 10;
-                speed_target = Math.floor(speed_target + 3);
+                new_speed_target = Math.floor((new_value - 10 + (90 / 7) / 2) / (90 / 7));
+                new_value = new_speed_target * (90 / 7) + 10;
+                new_speed_target = Math.floor(new_speed_target + 3);
             }
-            this.feedback_slider.speed_target = scale_speed_target_for_ui(speed_target);
+            if(new_speed_target > 0) {
+                feedback_slider.pwr_btn_state = 1;
+            }
+            const new_ui_speed_target = scale_speed_target_for_ui(new_speed_target);
             refresh_activation_style();
-            this.value = new_value.toString();
-            if (speed_target === 0) {
-                if (this.feedback_slider.pwr_btn_state !== 0) {
-                    send_command("Breezart.PwrBtn", "0");
-                }
-            } else {
-                if (this.feedback_slider.pwr_btn_state !== 1) {
-                    send_command("Breezart.PwrBtn", "1");
+            console.log("feedback_slider.speed_target 1: " + feedback_slider.speed_target);
+            if (old_ui_speed_target !== new_ui_speed_target) {
+                console.log("feedback_slider.speed_target 2: " + feedback_slider.speed_target);
+                feedback_slider.speed_target = new_ui_speed_target;
+                command_slider.value = new_value.toString();
+                send_command("Breezart.SpeedTarget", new_speed_target);
+                if (new_speed_target === 0) {
+                    if (old_pwr_btn_state !== 0) {
+                        send_command("Breezart.PwrBtn", "0");
+                    }
+                } else {
+                    if (old_pwr_btn_state !== 1) {
+                        send_command("Breezart.PwrBtn", "1");
+                    }
                 }
             }
-            send_command("Breezart.SpeedTarget", speed_target);
-        };
+        }
         cell.appendChild(command_slider);
         cell.appendChild(feedback_slider);
 
-        feedbacks["Breezart.PwrBtnState"] = {
-            on_feedback_value: function (self, value) {
-                feedback_slider.pwr_btn_state = Number.parseInt(value);
-                feedback_slider.apply_state();
-            }
-        };
-        feedbacks["Breezart.UnitState"] = {
-            on_feedback_value: function (self, value) {
-                feedback_slider.unit_state = Number.parseInt(value);
-                feedback_slider.apply_state();
-            }
-        };
-
         function refresh_activation_style() {
-            if (feedback_slider.speed_fact === feedback_slider.speed_target) {
+            const speed_target = is_pwr_on() ? feedback_slider.speed_target : 0;
+            if (feedback_slider.speed_fact === speed_target) {
                 command_slider.classList.remove("command-slider-activated");
             } else {
                 command_slider.classList.add("command-slider-activated");
@@ -487,6 +498,12 @@
         add_touch_listeners(command_slider, on_command_slider_pointer_down, onchange);
 
 
+        feedbacks["Breezart.PwrBtnState"] = {
+            on_feedback_value: function (self, value) {
+                feedback_slider.pwr_btn_state = Number.parseInt(value);
+                feedback_slider.apply_state();
+            }
+        };
         feedbacks["Breezart.SpeedFact"] = {
             on_feedback_value: function (self, value) {
                 feedback_slider.speed_fact = Number.parseInt(value);
@@ -495,10 +512,8 @@
         };
         feedbacks["Breezart.SpeedTarget"] = {
             on_feedback_value: function (self, value) {
-                const ui_speed_target = scale_speed_target_for_ui(Number.parseInt(value));
-                feedback_slider.speed_target = ui_speed_target;
-                refresh_activation_style();
-                command_slider.value = speed_fact_to_slider_value(ui_speed_target).toString();
+                feedback_slider.speed_target = scale_speed_target_for_ui(Number.parseInt(value));
+                feedback_slider.apply_state();
             }
         };
         feedbacks["Breezart.Tempr"] = {
