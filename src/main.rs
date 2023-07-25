@@ -14,6 +14,7 @@ mod commons;
 mod log;
 mod websocket;
 mod iridium;
+mod breezart;
 
 
 #[derive(RustEmbed)]
@@ -86,6 +87,8 @@ fn main() {
         .enable_time()
         .build()
         .unwrap();
+
+    breezart::init(&runtime);
 
     runtime.block_on(async {
         let mut auth_cache: LruCache<u64, u64> = LruCache::new(NonZeroUsize::new(32).unwrap());

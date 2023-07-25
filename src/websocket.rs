@@ -87,7 +87,13 @@ async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::w
     return match crate::iridium::http_client::read_all_tags().await {
         Ok(tags_body) => {
             for tag in tags_body.tags {
-                let msg = format!("tag;{};{};{}", tag.id, tag.name, tag.value);
+                let msg = outgoing_message(tag.id, &tag.name, &tag.value);
+                if let Err(send_err) = local_ws_tx.send(warp::ws::Message::text(msg)).await {
+                    return Err(send_err.to_string());
+                }
+            }
+            for tuple in crate::breezart::get_all_values() {
+                let msg = outgoing_message(0, &tuple.0, &tuple.1);
                 if let Err(send_err) = local_ws_tx.send(warp::ws::Message::text(msg)).await {
                     return Err(send_err.to_string());
                 }
@@ -100,10 +106,20 @@ async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::w
     }
 }
 
+fn outgoing_message(id: u32, name: &String, value: &String) -> String {
+    format!("tag;{id};{name};{value}")
+}
+
+pub(crate) fn send(name: &String, value: &String) {
+    CROSSBEAM_MESSAGE_BUS.0.try_send(
+        outgoing_message(0, name, value)
+    ).unwrap_or_default();
+}
+
 
 fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
     let future = async move {
-        let receiver = CROSSBEAM_MESSAGE_BUS.1.to_owned();
+        let receiver = CROSSBEAM_MESSAGE_BUS.1.clone();
         while remote_active.load(Ordering::SeqCst) {
             let success: bool;
             match receiver.recv_timeout(Duration::from_secs(30)) {
