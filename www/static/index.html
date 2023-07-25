@@ -224,8 +224,8 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        input.feedback-slider.vent::-webkit-slider-thumb {
-            background: radial-gradient(circle, #00000030 0%, #00000030 53%, #80ff80 73%, #80ff80 100%);
+        input.command-slider-activated.vent::-webkit-slider-thumb {
+            background: radial-gradient(circle, #80ff8030 0%, #80ff8030 53%, #80ff80 80%, #80ff80 100%);
         }
     </style>
 </head>
@@ -351,15 +351,14 @@
         command_slider.value = "0";
         command_slider.command = command_name;
         add_touch_listeners(command_slider, on_command_slider_pointer_down, on_command_slider_pointer_up);
-
         command_slider.feedback_slider = feedback_slider;
-
         command_slider.onchange = on_dimmer_changed;
+        feedbacks[command_name] = command_slider;
         cell.appendChild(command_slider);
 
         feedback_slider.command_slider = command_slider;
         feedback_slider.on_feedback_value = on_slider_feedback_value
-        feedback_slider.init_value = init_feedback_slider_value
+        command_slider.on_feedback_value = on_slider_feedback_value
         return cell;
     }
 
@@ -503,10 +502,6 @@
                 temp_text.nodeValue = ": " + value + "°C";
             }
         };
-
-//            feedback_slider.command_slider = command_slider;
-
-
         return cell;
     }
 
@@ -586,27 +581,24 @@
         }
     }
 
-    function on_slider_feedback_value(feedback_slider, value) {
-        feedback_slider.value = value;
-        if (feedback_slider.command_slider.value === feedback_slider.value) {
-            feedback_slider.command_slider.classList.remove("command-slider-activated");
+    function on_slider_feedback_value(slider, value) {
+        slider.value = value;
+        let command_slider = slider.command_slider ? slider.command_slider : slider;
+        let feedback_slider = slider.feedback_slider ? slider.feedback_slider : slider;
+        if(feedback_slider.value === command_slider.value) { // both values can be changed
+            command_slider.classList.remove("command-slider-activated");
+        } else {
+            command_slider.classList.add("command-slider-activated");
         }
-    }
-
-    function init_feedback_slider_value(feedback_slider, value) {
-        feedback_slider.command_slider.value = value;
     }
 
     const web_socket_message_pattern = RegExp("^[^;]+;[^;]+;([^;]+);([^;]+)");
 
-    function apply_feedback(name, value, initFlag) {
+    function apply_feedback(name, value) {
         const input = feedbacks[name];
         if (input != null) {
             if (input.on_feedback_value) {
                 input.on_feedback_value(input, value);
-            }
-            if (initFlag && input.init_value && input.init_value(input, value)) {
-                input.init_value(value);
             }
         }
     }
@@ -628,7 +620,7 @@
             if (ev.type === "message") {
                 const match_array = web_socket_message_pattern.exec(ev.data);
                 if (match_array) {
-                    apply_feedback(match_array[1], match_array[2], false);
+                    apply_feedback(match_array[1], match_array[2]);
                 }
             }
         };
