@@ -1,6 +1,7 @@
-use time::UtcOffset;
 use time::macros::format_description;
+use time::UtcOffset;
 use tracing::{debug, Level};
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::FmtSubscriber;
 
@@ -11,7 +12,8 @@ pub fn init() {
     );
 
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
+        .with_max_level(Level::TRACE)
+        .with_env_filter(EnvFilter::from_default_env())
         .with_thread_names(true)
         .with_timer(local_time)
         .compact()
