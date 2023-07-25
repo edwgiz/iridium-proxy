@@ -640,8 +640,8 @@
             if (ev.reason === 'unauthorized') {
                 require_login(true);
             } else {
-                console.log("Reconnect in 1 min...")
-                setTimeout(listen_feedbacks, 60_000);
+                console.log("Reconnect in 5 sec...")
+                setTimeout(listen_feedbacks, 5_000);
             }
         }
     }
