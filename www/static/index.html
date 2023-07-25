@@ -260,7 +260,8 @@
         xr.setRequestHeader("Content-Type", "plain/text");
         xr.onload = function () {
             if (xr.status === 200) {
-                require_login(false)
+                require_login(false);
+                listen_feedbacks();
             } else {
                 alert("Login unsuccessful\n\n" + xr.responseText);
             }
