@@ -141,11 +141,11 @@ fn store_value(parameter: &'static Parameter, value: String) {
     if let Some(old_value) = VALUES.lock().unwrap().insert(parameter, value.clone()) {
         if !old_value.eq(&value) {
             INTENSIVE_RECV_ATTEMPTS.store(20, Ordering::Relaxed);
-            crate::websocket::send(&format(parameter), &value);
+            crate::websocket::broadcast(&format(parameter), &value);
             debug!("Parameter {:?}: {old_value} -> {value}", parameter);
         }
     } else {
-        crate::websocket::send(&format!("Breezart.{:?}", parameter), &value);
+        crate::websocket::broadcast(&format!("Breezart.{:?}", parameter), &value);
         debug!("Parameter {:?}: {value}", parameter);
     }
 }
@@ -172,25 +172,6 @@ fn parse_hex_capture(captures: &Captures, capture_index: usize) -> Result<u16, S
             Err(format!("No capture at {} index", capture_index))
         }
     };
-}
-
-#[test]
-fn it_works() {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
-
-    REQUEST_BUS.lock().unwrap().0.send(TcpRequest {
-        request_payload: vst07_request(),
-        on_response: |response_payload| {
-            println!("{response_payload}");
-        },
-    }).unwrap_or_default();
-
-    runtime.block_on(async { init(&runtime) });
-    //   init();
 }
 
 
