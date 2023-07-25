@@ -20,7 +20,7 @@ url = { version = "*", default-features = false } # exists in reqwest
 const_format = { version = "0.2.31", default-features = false }
 crossbeam-channel = { version = "0.5.8" }
 tracing = { version = "*", features = ["max_level_debug"] }# exists in warp::tokio
-tracing-subscriber = { version = "*", features = ["local-time", "time", "fmt"], default-features = false }# exists in tracing
+tracing-subscriber = { version = "*", features = ["local-time", "time", "fmt", "env-filter"], default-features = false }# exists in tracing
 time = { version = "*", features = ["macros"], default-features = false }# exists in tracing-subscriber
 lru = { version = "0.11.0", default-features = false }
 rand = { version = "*", default-features = false }# exists in tungstenite
