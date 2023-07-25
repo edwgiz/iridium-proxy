@@ -88,9 +88,10 @@ fn main() {
         .build()
         .unwrap();
 
-    breezart::init(&runtime);
-
     runtime.block_on(async {
+        breezart::init();
+        websocket::init();
+
         let mut auth_cache: LruCache<u64, u64> = LruCache::new(NonZeroUsize::new(32).unwrap());
         auth_cache.push(u64::from_str_radix("F9681A64D3301861", 16).unwrap(), u64::MAX);
         let auth_cache = Arc::new(Mutex::new(auth_cache));

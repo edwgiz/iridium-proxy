@@ -1,20 +1,17 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::thread;
 use std::time::Duration;
 
+use bus::Bus;
 use const_format::formatcp;
-use crossbeam_channel;
-use crossbeam_channel::{Receiver, Sender};
 use futures::SinkExt;
 use futures::stream::SplitSink;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, Instrument, warn};
+use tracing::{debug, error, info, warn};
 use url::Url;
-use bus::Bus;
 
 //noinspection RsUnusedImport
 const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
@@ -133,7 +130,7 @@ fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, wa
                 Ok(txt) => {
                     success = local_ws_tx.send(warp::ws::Message::text(txt)).await.is_ok();
                 }
-                Err(rte) => {
+                Err(_rte) => {
                     success = true;
                 }
             }
@@ -148,7 +145,7 @@ fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, wa
 
 
 pub fn init() {
-    tokio::spawn(async {
+    tokio::task::spawn_blocking(|| {
         let url = Url::parse(PROXY_WEBSOCKET_URL).unwrap();
         loop {
             if let Ok((mut remote_socket, _)) = tungstenite::client::connect(url.clone()) {
@@ -174,59 +171,3 @@ pub fn init() {
         }
     });
 }
-
-use std::thread::{spawn, sleep, Thread};
-use crossbeam_channel::{unbounded};
-
-
-#[test]
-fn it_works() {
-    let (tx1, rx1) = unbounded();
-    let (tx2, rx2) = unbounded();
-
-    for i in 0..3 {
-        let tx1 = tx1.clone();
-        let rx2 = rx2.clone();
-        spawn(move || consumer(i, tx1,rx2));
-    }
-
-    let vec_int:Vec<u64>=vec![1,2,3,4,5,6,7,8,9];
-    spawn(move || producer(vec_int,rx1,tx2));
-
-    thread::sleep(Duration::from_secs(100));
-}
-
-fn consumer(thread: i32, request: Sender<bool>, response: Receiver<u64>) {
-    let mut receive_counter=3;
-    loop {
-        request.send(true).unwrap();
-        let r =response.recv().unwrap();
-        println!("Thread {} received {}",thread,r);
-        receive_counter-=1;
-        if receive_counter==0 {
-            println!("Thread {} is done!", thread);
-            break;
-        }else {
-            sleep(Duration::from_secs(r))
-        }
-    }
-}
-
-fn producer(mut vec_u64: Vec<u64>, request: Receiver<bool>, response: Sender<u64>) {
-    loop{
-        match request.try_recv(){
-            Ok(_) => {
-                let send_val= vec_u64.swap_remove(0);
-                response.send(send_val).unwrap();
-                if vec_u64.len()==0{
-                    println!("Finishing producing");
-                    break;
-                }
-            }
-            _ => {
-
-            }
-        }
-    }
-}
-

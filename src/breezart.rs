@@ -1,20 +1,22 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::ops::Deref;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::SyncSender;
 use std::sync::Mutex;
 use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use regex::{Captures, Regex};
-use tokio::runtime::Runtime;
 use tracing::{debug, info, warn};
 
 use Parameter::*;
 
 const PASSWORD: &'static str = "C5E4";
 
-static REQUEST_BUS: Lazy<Mutex<(crossbeam_channel::Sender<TcpRequest>, crossbeam_channel::Receiver<TcpRequest>)>> = Lazy::new(|| Mutex::new(crossbeam_channel::bounded(64)));
+static BUS: Lazy<SyncSender<TcpRequest>> = Lazy::new(subscribe);
 static INTENSIVE_RECV_ATTEMPTS: Lazy<AtomicU32> = Lazy::new(|| AtomicU32::new(1));
 
 #[derive(Debug)]
@@ -23,45 +25,49 @@ struct TcpRequest {
     on_response: fn(&str),
 }
 
-pub(crate) fn init(runtime: &Runtime) {
-    runtime.spawn_blocking(connection_loop);
-    info!("Connection loop started")
+pub(crate) fn init() {
+    let _bus: &SyncSender<TcpRequest> = BUS.deref(); // provoke lazy initialization
+    info!("Connection loop started");
 }
 
-fn connection_loop() {
-    let request_receiver = REQUEST_BUS.lock().unwrap().1.clone();
-    let mut recv_timeout_in_sec: u64 = 1;
-    let mut buffer: [u8; 512] = [0; 512];
-    let status_request: TcpRequest = TcpRequest {
-        request_payload: vst07_request(),
-        on_response: on_vst07_response,
-    };
-    loop {
-        if let Ok(mut stream) = TcpStream::connect("192.168.1.217:1560") {
-            loop {
-                let intensive_recv_attempts = INTENSIVE_RECV_ATTEMPTS.fetch_update(
-                    Ordering::SeqCst,Ordering::SeqCst,
-                    |x| Some(if x == 0 {0} else { x - 1 })).unwrap();
-                let recv_timeout = if intensive_recv_attempts > 0 { 500 } else { 30_000 };
-                let handled: bool = match request_receiver.recv_timeout(Duration::from_millis(recv_timeout)) {
-                    Ok(request) => {
-                        recv_timeout_in_sec = 1;
-                        send_request(&mut buffer, &mut stream, &request)
+fn subscribe() -> SyncSender<TcpRequest> {
+    let (sender, receiver) = std::sync::mpsc::sync_channel(64);
+    tokio::task::spawn_blocking(move || {
+        let mut recv_timeout_in_sec: u64 = 1;
+        let mut buffer: [u8; 512] = [0; 512];
+        let status_request: TcpRequest = TcpRequest {
+            request_payload: vst07_request(),
+            on_response: on_vst07_response,
+        };
+        loop {
+            if let Ok(mut stream) = TcpStream::connect("192.168.1.217:1560") {
+                loop {
+                    let intensive_recv_attempts = INTENSIVE_RECV_ATTEMPTS.fetch_update(
+                        Ordering::SeqCst, Ordering::SeqCst,
+                        |x| Some(if x == 0 { 0 } else { x - 1 })).unwrap();
+                    let recv_timeout = if intensive_recv_attempts > 0 { 500 } else { 30_000 };
+                    let handled: bool = match receiver.recv_timeout(Duration::from_millis(recv_timeout)) {
+                        Ok(request) => {
+                            recv_timeout_in_sec = 1;
+                            send_request(&mut buffer, &mut stream, &request)
+                        }
+                        Err(_timeout) => {
+                            recv_timeout_in_sec = u64::min(60, recv_timeout_in_sec * 2);
+                            send_request(&mut buffer, &mut stream, &status_request)
+                        }
+                    };
+                    if !handled {
+                        break;
                     }
-                    Err(_timeout) => {
-                        recv_timeout_in_sec = u64::min(60, recv_timeout_in_sec * 2);
-                        send_request(&mut buffer, &mut stream, &status_request)
-                    }
-                };
-                if !handled {
-                    break;
                 }
+                stream.shutdown(std::net::Shutdown::Both).unwrap();
             }
-            stream.shutdown(std::net::Shutdown::Both).unwrap();
+            info!("TCP reconnect in 30 secs...");
+            std::thread::sleep(Duration::from_secs(30));
         }
-        info!("TCP reconnect in 30 secs...");
-        std::thread::sleep(Duration::from_secs(30));
-    }
+    });
+
+    return sender;
 }
 
 fn send_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpRequest) -> bool {
@@ -206,8 +212,7 @@ fn enqueue_req(msg: String) {
         request_payload: msg.clone().into_bytes(),
         on_response: on_response_stub,
     };
-    let sender = &REQUEST_BUS.lock().unwrap().0;
-    match sender.try_send(tcp_request) {
+    match BUS.try_send(tcp_request) {
         Ok(_) => {
             debug!("Queued: {}", msg);
         }
