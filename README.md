@@ -1,4 +1,9 @@
-Generate SSL certificate 
+# Release build
+```shell
+cargo build --target armv7-unknown-linux-musleabihf --release
+```
+
+# Generate SSL certificate 
 
 ```shell
 openssl genrsa -traditional -out key.pem 4096
