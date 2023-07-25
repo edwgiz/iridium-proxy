@@ -1,14 +1,16 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use bus::Bus;
 use const_format::formatcp;
 use futures::SinkExt;
 use futures::stream::SplitSink;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
+use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::broadcast::Receiver;
+use tokio::sync::broadcast::Sender;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 use url::Url;
@@ -16,7 +18,7 @@ use url::Url;
 //noinspection RsUnusedImport
 const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
 
-static BUS: Lazy<Mutex<Bus<String>>> = Lazy::new(|| Mutex::new(Bus::new(64)));
+static BUS: Lazy<(Sender<String>, Receiver<String>)> = Lazy::new(|| tokio::sync::broadcast::channel(64));
 
 pub async fn websocket_unauthorized(mut local_socket: warp::filters::ws::WebSocket) {
     local_socket.send(
@@ -40,6 +42,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
 
     let remote_read_task = subscribe_remote_websocket(local_ws_tx, remote_active);
 
+    info!("Client websocket listening activated");
     loop {
         match local_ws_rx.next().await {
             None => {
@@ -54,8 +57,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
                                 Ok(msg) => {
                                     debug!(msg);
                                     if let Some((channel_name, value)) = msg.split_once(";") {
-                                        if crate::breezart::send_set(channel_name, value) {
-                                        } else if !crate::iridium::http_client::send_set(channel_name, value).await {
+                                        if crate::breezart::send_set(channel_name, value) {} else if !crate::iridium::http_client::send_set(channel_name, value).await {
                                             warn!("Client socket: Can't pass iridium message: {msg}");
                                         }
                                     } else {
@@ -78,6 +80,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
             }
         }
     }
+    info!("Client websocket listening deactivated");
     local_active.store(false, Ordering::Relaxed);
     remote_read_task.abort();
     remote_read_task.await.unwrap_or_default();
@@ -103,7 +106,7 @@ async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::w
         Err(err) => {
             Err(err)
         }
-    }
+    };
 }
 
 fn create_message(id: u32, name: &String, value: &String) -> String {
@@ -115,22 +118,32 @@ pub(crate) fn broadcast(name: &String, value: &String) {
 }
 
 fn broadcast_message(msg: String) {
-    BUS.lock().unwrap().try_broadcast(
-        msg
-    ).unwrap_or_default();
+    BUS.0.send(msg).unwrap_or_default();
 }
 
 
 fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
-    return tokio::spawn(async move {
-        let mut receiver = BUS.lock().unwrap().add_rx();
+    return tokio::task::spawn(async move {
+        let mut receiver = BUS.0.subscribe();
+        info!("Client websocket sending activated");
         while remote_active.load(Ordering::SeqCst) {
             let success: bool;
-            match receiver.recv_timeout(Duration::from_secs(30)) {
-                Ok(txt) => {
-                    success = local_ws_tx.send(warp::ws::Message::text(txt)).await.is_ok();
+            match tokio::time::timeout(Duration::from_secs(5), receiver.recv()).await {
+                Ok(received) => {
+                    match received {
+                        Ok(txt) => {
+                            success = local_ws_tx.send(warp::ws::Message::text(txt)).await.is_ok();
+                        }
+                        Err(RecvError::Closed) => {
+                            success = false;
+                        }
+                        Err(RecvError::Lagged(n)) => {
+                            warn!("Lagged messages: {n}");
+                            success = true;
+                        }
+                    }
                 }
-                Err(_rte) => {
+                Err(_timeout_elapsed) => {
                     success = true;
                 }
             }
@@ -139,6 +152,7 @@ fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, wa
             }
         }
         local_ws_tx.close().await.unwrap_or_default();
+        info!("Client websocket sending deactivated");
         return true;
     });
 }
