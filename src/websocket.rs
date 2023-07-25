@@ -11,7 +11,8 @@ use futures::stream::SplitSink;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
 use tokio::task::JoinHandle;
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
+use tracing::field::debug;
 use url::Url;
 
 //noinspection RsUnusedImport
@@ -53,10 +54,11 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
                         if msg.is_text() {
                             match msg.to_str() {
                                 Ok(msg) => {
+                                    debug!(msg);
                                     if let Some((channel_name, value)) = msg.split_once(";") {
-                                        if !crate::iridium::http_client::send_set(channel_name, value).await {
-                                            warn!("Client socket: Can't pass message: {msg}");
-                                            break;
+                                        if crate::breezart::send_set(channel_name, value) {
+                                        } else if !crate::iridium::http_client::send_set(channel_name, value).await {
+                                            warn!("Client socket: Can't pass iridium message: {msg}");
                                         }
                                     } else {
                                         error!("Client socket: Unknown text message format: {msg}");
@@ -80,7 +82,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
     }
     local_active.store(false, Ordering::Relaxed);
     remote_read_task.abort();
-    remote_read_task.await.unwrap();
+    remote_read_task.await.unwrap_or_default();
 }
 
 async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>) -> Result<SplitSink<warp::ws::WebSocket, warp::ws::Message>, String> {

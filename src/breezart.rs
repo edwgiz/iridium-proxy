@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -11,11 +12,12 @@ use tracing::{debug, info, warn};
 
 use Parameter::*;
 
-const PASSWORD: &'static [u8] = b"_C5E4";
+const PASSWORD: &'static str = "C5E4";
 
-static REQUEST_BUS: Lazy<(crossbeam_channel::Sender<TcpRequest>, crossbeam_channel::Receiver<TcpRequest>)> = Lazy::new(|| crossbeam_channel::bounded(64));
+static REQUEST_BUS: Lazy<Mutex<(crossbeam_channel::Sender<TcpRequest>, crossbeam_channel::Receiver<TcpRequest>)>> = Lazy::new(|| Mutex::new(crossbeam_channel::bounded(64)));
+static INTENSIVE_RECV_ATTEMPTS: Lazy<AtomicU32> = Lazy::new(|| AtomicU32::new(1));
 
-
+#[derive(Debug)]
 struct TcpRequest {
     request_payload: Vec<u8>,
     on_response: fn(&str),
@@ -27,7 +29,7 @@ pub(crate) fn init(runtime: &Runtime) {
 }
 
 fn connection_loop() {
-    let request_receiver = REQUEST_BUS.1.clone();
+    let request_receiver = REQUEST_BUS.lock().unwrap().1.clone();
     let mut recv_timeout_in_sec: u64 = 1;
     let mut buffer: [u8; 512] = [0; 512];
     let status_request: TcpRequest = TcpRequest {
@@ -37,14 +39,18 @@ fn connection_loop() {
     loop {
         if let Ok(mut stream) = TcpStream::connect("192.168.1.217:1560") {
             loop {
-                let handled: bool = match request_receiver.recv_timeout(Duration::from_secs(recv_timeout_in_sec)) {
+                let intensive_recv_attempts = INTENSIVE_RECV_ATTEMPTS.fetch_update(
+                    Ordering::SeqCst,Ordering::SeqCst,
+                    |x| Some(if x == 0 {0} else { x - 1 })).unwrap();
+                let recv_timeout = if intensive_recv_attempts > 0 { 500 } else { 30_000 };
+                let handled: bool = match request_receiver.recv_timeout(Duration::from_millis(recv_timeout)) {
                     Ok(request) => {
                         recv_timeout_in_sec = 1;
-                        on_request(&mut buffer, &mut stream, &request)
+                        send_request(&mut buffer, &mut stream, &request)
                     }
                     Err(_timeout) => {
                         recv_timeout_in_sec = u64::min(60, recv_timeout_in_sec * 2);
-                        on_request(&mut buffer, &mut stream, &status_request)
+                        send_request(&mut buffer, &mut stream, &status_request)
                     }
                 };
                 if !handled {
@@ -58,10 +64,10 @@ fn connection_loop() {
     }
 }
 
-fn on_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpRequest) -> bool {
+fn send_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpRequest) -> bool {
     let request_size = request.request_payload.len();
     buffer[..request_size].copy_from_slice(&request.request_payload);
-    println!("{}", std::str::from_utf8(&buffer[..request_size]).unwrap_or_default());
+    debug!("intensivity {}, command {}", INTENSIVE_RECV_ATTEMPTS.load(Ordering::Relaxed), std::str::from_utf8(&buffer[..request_size]).unwrap_or_default());
     if stream.write_all(&buffer[..request_size]).is_ok() && stream.flush().is_ok() {
         if let Ok(response_size) = stream.read(buffer) {
             let response_handler = request.on_response;
@@ -82,7 +88,7 @@ fn on_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpReque
 }
 
 pub fn vst07_request() -> Vec<u8> {
-    return [b"VSt07", PASSWORD].concat();
+    return format!("VSt07_{PASSWORD}").into_bytes();
 }
 
 const VST07_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^VSt07_([0-9a-f]+)_([0-9a-f]+)_([0-9a-f]+)_[0-9a-f]+_([0-9a-f]+)").unwrap());
@@ -134,6 +140,7 @@ fn on_vst07_response(line: &str) {
 fn store_value(parameter: &'static Parameter, value: String) {
     if let Some(old_value) = VALUES.lock().unwrap().insert(parameter, value.clone()) {
         if !old_value.eq(&value) {
+            INTENSIVE_RECV_ATTEMPTS.store(20, Ordering::Relaxed);
             crate::websocket::send(&format(parameter), &value);
             debug!("Parameter {:?}: {old_value} -> {value}", parameter);
         }
@@ -175,7 +182,7 @@ fn it_works() {
         .build()
         .unwrap();
 
-    REQUEST_BUS.0.clone().send(TcpRequest {
+    REQUEST_BUS.lock().unwrap().0.send(TcpRequest {
         request_payload: vst07_request(),
         on_response: |response_payload| {
             println!("{response_payload}");
@@ -184,4 +191,56 @@ fn it_works() {
 
     runtime.block_on(async { init(&runtime) });
     //   init();
+}
+
+
+pub(crate) fn send_set(channel_name: &str, value: &str) -> bool {
+     match channel_name {
+        "Breezart.PwrBtn" => {
+            if "1".eq(value) || "0".eq(value) {
+                enqueue_req(format!("VWPwr_{PASSWORD}_{value}"));
+            } else {
+                warn!("Invalid Breezart.PwrBtn: {value}");
+            }
+        }
+        "Breezart.SpeedTarget" => {
+            match u8::from_str_radix(value, 10) {
+                Ok(value) => {
+                    if value <= 10 {
+                        enqueue_req(format!("VWSpd_{PASSWORD}_{:X}", value));
+                    }
+                }
+                Err(parse_err) => {
+                    warn!("Invalid Breezart.SpeedTarget: {value}, {parse_err}");
+                }
+            }
+        }
+        &_ => {return false;}
+    }
+    return true;
+}
+
+fn enqueue_req(msg: String) {
+    let tcp_request = TcpRequest {
+        request_payload: msg.clone().into_bytes(),
+        on_response: on_response_stub,
+    };
+    let sender = &REQUEST_BUS.lock().unwrap().0;
+    match sender.try_send(tcp_request) {
+        Ok(_) => {
+            debug!("Queued: {}", msg);
+        }
+        Err(err) => {
+            warn!("Not queued: {}, {}", msg, err);
+        }
+    }
+}
+
+fn on_response_stub(response_payload: &str) {
+    if !response_payload.starts_with("OK_") {
+        warn!("Unexpected response: {response_payload}");
+    } else {
+        debug!(response_payload);
+        INTENSIVE_RECV_ATTEMPTS.store(20, Ordering::Relaxed);
+    }
 }

@@ -12,6 +12,7 @@
             color: #ffffff;
             background-color: black;
         }
+
         html, body {
             min-height: 100vh;
             margin: 0;
@@ -158,6 +159,7 @@
         input.switch-on {
             background: radial-gradient(closest-corner, #2a2a2a 73%, #ffffff 100%);
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch:active {
             background: radial-gradient(closest-corner, #2a2a2a 68%, #ffffff 100%);
@@ -168,39 +170,62 @@
         label.slider.lighting {
             color: #ffff80;
         }
+
         /*noinspection CssUnusedSymbol*/
         input.command-slider-activated.lighting::-webkit-slider-thumb {
             background: radial-gradient(circle, #ffff8030 0%, #ffff8030 53%, #ffff80 80%, #ffff80 100%);
         }
+
         /*noinspection CssUnusedSymbol*/
         input.feedback-slider.lighting::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffff80 73%, #ffff80 100%);
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch.lighting {
             color: #ffff80;
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch-on.lighting {
             background: radial-gradient(closest-corner, #2a2a2a 73%, #ffff80 100%);
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch.lighting:active {
             background: radial-gradient(closest-corner, #2a2a2a 68%, #ffff80 100%);
             border-style: none;
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch.vent {
             color: #80ff80;
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch-on.vent {
             background: radial-gradient(closest-corner, #2a2a2a 73%, #80ff80 100%);
         }
+
         /*noinspection CssUnusedSymbol*/
         input.switch.vent:active, input.switch-active.vent {
             background: radial-gradient(closest-corner, #2a2a2a 68%, #80ff80 100%);
             border-style: none;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        label.slider.vent {
+            color: #80ff80;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.feedback-slider.vent::-webkit-slider-thumb {
+            background: radial-gradient(circle, #00000030 0%, #00000030 53%, #80ff80 73%, #80ff80 100%);
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        input.feedback-slider.vent::-webkit-slider-thumb {
+            background: radial-gradient(circle, #00000030 0%, #00000030 53%, #80ff80 73%, #80ff80 100%);
         }
     </style>
 </head>
@@ -225,7 +250,7 @@
         main_container.style.display = required ? "none" : "block";
         login_container.style.display = required ? "flex" : "none";
         let html_element_classes = document.body.classList;
-        if(required) {
+        if (required) {
             html_element_classes.add("login");
         } else {
             html_element_classes.remove("login");
@@ -266,7 +291,7 @@
     }
 
     function send_command(command_name, value) {
-        if(socket) {
+        if (socket) {
             socket.send(command_name + ';' + value)
         }
     }
@@ -373,6 +398,118 @@
         return cell;
     }
 
+    function create_breezart() {
+        const cell = d.createElement('div');
+        cell.classList.add("slider");
+
+        const label = d.createElement('label');
+        label.classList.add("slider", "vent")
+        const temp_text = d.createTextNode("");
+        label.appendChild(d.createTextNode("Breezart"));
+        label.appendChild(temp_text);
+        cell.appendChild(label);
+
+        const feedback_slider = d.createElement('input');
+        feedback_slider.classList.add("feedback-slider", "vent");
+        feedback_slider.type = "range";
+        feedback_slider.min = "0";
+        feedback_slider.max = "100";
+        feedback_slider.value = "0";
+
+        function speed_fact_to_slider_value(speed_fact) {
+            return Math.max(0, 10 + 90 * (speed_fact - 30) / 70);
+        }
+
+        feedback_slider.apply_state = function () {
+            if (this.pwr_btn_state === 1 || this.unit_state === 1 || this.speed_fact !== 255) {
+                this.value = speed_fact_to_slider_value(this.speed_fact);
+            } else {
+                this.value = 0;
+            }
+        }
+
+
+
+        const command_slider = d.createElement('input');
+        command_slider.classList.add("command-slider", "vent");
+        command_slider.type = "range";
+        command_slider.min = "0";
+        command_slider.max = "100";
+        command_slider.value = "0";
+        add_touch_listeners(command_slider, on_command_slider_pointer_down, function (ev) {
+        });
+
+        command_slider.feedback_slider = feedback_slider;
+
+        command_slider.onchange = function (_ev) {
+            let new_value = Number.parseInt(this.value);
+            let speed_target;
+            if (new_value <= 5) {
+                new_value = 0;
+                speed_target = 0;
+            } else if (new_value === 100) {
+                speed_target = 10;
+            } else {
+                new_value = Math.max(10, new_value);
+                speed_target = Math.floor((new_value - 10 + (90 / 7) / 2) / (90 / 7));
+                new_value = speed_target * (90 / 7) + 10;
+                speed_target = Math.floor(speed_target + 3);
+            }
+            this.feedback_slider.speed_target = 10 * speed_target;
+            this.value = new_value.toString();
+            if (speed_target === 0) {
+                if (this.feedback_slider.pwr_btn_state !== 0) {
+                    send_command("Breezart.PwrBtn", "0");
+                }
+            } else {
+                if (this.feedback_slider.pwr_btn_state !== 1) {
+                    send_command("Breezart.PwrBtn", "1");
+                }
+            }
+            send_command("Breezart.SpeedTarget", speed_target);
+        };
+        cell.appendChild(command_slider);
+        cell.appendChild(feedback_slider);
+
+        feedbacks["Breezart.PwrBtnState"] = {
+            on_feedback_value: function (self, value) {
+                feedback_slider.pwr_btn_state = Number.parseInt(value);
+                feedback_slider.apply_state();
+            }
+        };
+        feedbacks["Breezart.UnitState"] = {
+            on_feedback_value: function (self, value) {
+                feedback_slider.unit_state = Number.parseInt(value);
+                feedback_slider.apply_state();
+            }
+        };
+        feedbacks["Breezart.SpeedFact"] = {
+            on_feedback_value: function (self, value) {
+                feedback_slider.speed_fact = Number.parseInt(value);
+                if(feedback_slider.speed_fact === feedback_slider.speed_target) {
+                    command_slider.classList.remove("command-slider-activated");
+                }
+                feedback_slider.apply_state();
+            }
+        };
+        feedbacks["Breezart.SpeedTarget"] = {
+            on_feedback_value: function (self, value) {
+                const speed_target = Number.parseInt(value);
+                command_slider.value = speed_fact_to_slider_value(speed_target * 10).toString();
+            }
+        };
+        feedbacks["Breezart.Tempr"] = {
+            on_feedback_value: function (self, value) {
+                temp_text.nodeValue = ": " + value + "°C";
+            }
+        };
+
+//            feedback_slider.command_slider = command_slider;
+
+
+        return cell;
+    }
+
     function init() {
         feedbacks.length = 0;
         const xr = new XMLHttpRequest();
@@ -391,8 +528,11 @@
                 case 2:
                     cell = create_fan_switch(e);
                     break;
+                case 3:
+                    cell = create_breezart();
+                    break;
             }
-            if(cell) {
+            if (cell) {
                 main_container.appendChild(cell);
             }
         });
@@ -405,9 +545,9 @@
         send_command(el.command, el.command_value ? "1" : "0");
     }
 
-    function on_switch_feedback_value (el, value) {
+    function on_switch_feedback_value(el, value) {
         el.command_value = Number.parseFloat(value) === 1;
-        if(el.command_value) {
+        if (el.command_value) {
             el.classList.add("switch-on");
         } else {
             el.classList.remove("switch-on");
@@ -422,9 +562,9 @@
         send_command(command, value);
     }
 
-    function on_fan_switch_feedback_value (el, value) {
+    function on_fan_switch_feedback_value(el, value) {
         el.command_value = Number.parseFloat(value) === 0;
-        if(el.command_value) {
+        if (el.command_value) {
             el.classList.add("switch-on");
         } else {
             el.classList.remove("switch-on");
@@ -441,14 +581,14 @@
         const el = ev.target;
         adjust_command_slider_value(el);
         // noinspection JSIncompatibleTypesComparison
-        if(el.value === el.feedback_slider.value) {
+        if (el.value === el.feedback_slider.value) {
             el.classList.remove("command-slider-activated");
         }
     }
 
-    function on_slider_feedback_value (feedback_slider, value) {
+    function on_slider_feedback_value(feedback_slider, value) {
         feedback_slider.value = value;
-        if(feedback_slider.command_slider.value === feedback_slider.value) {
+        if (feedback_slider.command_slider.value === feedback_slider.value) {
             feedback_slider.command_slider.classList.remove("command-slider-activated");
         }
     }
@@ -462,10 +602,10 @@
     function apply_feedback(name, value, initFlag) {
         const input = feedbacks[name];
         if (input != null) {
-            if(input.on_feedback_value) {
+            if (input.on_feedback_value) {
                 input.on_feedback_value(input, value);
             }
-            if(initFlag && input.init_value && input.init_value(input, value)) {
+            if (initFlag && input.init_value && input.init_value(input, value)) {
                 input.init_value(value);
             }
         }
@@ -497,7 +637,7 @@
         }
         socket.onclose = function (ev) {
             socket = null;
-            if(ev.reason === 'unauthorized') {
+            if (ev.reason === 'unauthorized') {
                 require_login(true);
             } else {
                 console.log("Reconnect in 1 min...")
