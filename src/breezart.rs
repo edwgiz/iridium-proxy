@@ -141,7 +141,7 @@ fn on_vst07_response(line: &str) {
 fn store_value(parameter: &'static Parameter, value: String) {
     if let Some(old_value) = VALUES.lock().unwrap().insert(parameter, value.clone()) {
         if !old_value.eq(&value) {
-            INTENSIVE_RECV_ATTEMPTS.store(20, Ordering::Relaxed);
+            INTENSIVE_RECV_ATTEMPTS.store(30, Ordering::Relaxed);
             crate::websocket::broadcast(&format(parameter), &value);
             debug!("Parameter {:?}: {old_value} -> {value}", parameter);
         }
@@ -225,6 +225,6 @@ fn on_response_stub(response_payload: &str) {
         warn!("Unexpected response: {response_payload}");
     } else {
         debug!(response_payload);
-        INTENSIVE_RECV_ATTEMPTS.store(20, Ordering::Relaxed);
+        INTENSIVE_RECV_ATTEMPTS.store(30, Ordering::Relaxed);
     }
 }
