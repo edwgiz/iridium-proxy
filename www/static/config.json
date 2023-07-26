@@ -6,10 +6,28 @@
     "Cabinet"
   ],
   [
+    4,
+    "KNX Serial (UMC).Shutter3 move",
+    "KNX Serial (UMC).Shutter3 stop",
+    "Cabinet"
+  ],
+  [
     0,
     "KNX Serial (UMC).Gr 6 value",
     "KNX Serial (UMC).Gr 6 status value",
     "Kitchen"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter4 move",
+    "KNX Serial (UMC).Shutter4 stop",
+    "Kitchen 1"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter5 move",
+    "KNX Serial (UMC).Shutter5 stop",
+    "Kitchen 2"
   ],
   [
     1,
@@ -24,15 +42,33 @@
     "Corridor"
   ],
   [
+    4,
+    "KNX Serial (UMC).Shutter2 move",
+    "KNX Serial (UMC).Shutter2 stop",
+    "Hall"
+  ],
+  [
     0,
     "KNX Serial (UMC).Gr 3-1 value",
     "KNX Serial (UMC).Gr 3-1 status value",
     "Hall 1"
   ],
   [
+    4,
+    "KNX Serial (UMC).Shutter1 move",
+    "KNX Serial (UMC).Shutter1 stop",
+    "Hall 1"
+  ],
+  [
     0,
     "KNX Serial (UMC).Gr 3-2 value",
     "KNX Serial (UMC).Gr 3-2 status value",
+    "Hall 2"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter9 move",
+    "KNX Serial (UMC).Shutter9 stop",
     "Hall 2"
   ],
   [
@@ -84,15 +120,39 @@
     "Man bedroom"
   ],
   [
+    4,
+    "KNX Serial (UMC).Shutter8 move",
+    "KNX Serial (UMC).Shutter8 stop",
+    "Man bedroom"
+  ],
+  [
     0,
     "KNX Serial (UMC).Gr 14 value",
     "KNX Serial (UMC).Gr 14 status value",
     "Woman bedroom"
   ],
   [
+    4,
+    "KNX Serial (UMC).Shutter10 move",
+    "KNX Serial (UMC).Shutter10 stop",
+    "Woman bedroom 1"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter7 move",
+    "KNX Serial (UMC).Shutter7 stop",
+    "Woman bedroom 2"
+  ],
+  [
     0,
     "KNX Serial (UMC).Gr 15 value",
     "KNX Serial (UMC).Gr 15 status value",
+    "Child bedroom"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter6 move",
+    "KNX Serial (UMC).Shutter6 stop",
     "Child bedroom"
   ],
   [
@@ -109,66 +169,6 @@
   ],
   [
     3
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter1 move",
-    "KNX Serial (UMC).Shutter1 stop",
-    "Shutter1"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter2 move",
-    "KNX Serial (UMC).Shutter2 stop",
-    "Shutter2"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter3 move",
-    "KNX Serial (UMC).Shutter3 stop",
-    "Shutter3"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter4 move",
-    "KNX Serial (UMC).Shutter4 stop",
-    "Shutter4"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter5 move",
-    "KNX Serial (UMC).Shutter5 stop",
-    "Shutter5"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter6 move",
-    "KNX Serial (UMC).Shutter6 stop",
-    "Shutter6"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter7 move",
-    "KNX Serial (UMC).Shutter7 stop",
-    "Shutter7"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter8 move",
-    "KNX Serial (UMC).Shutter8 stop",
-    "Shutter8"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter9 move",
-    "KNX Serial (UMC).Shutter9 stop",
-    "Shutter9"
-  ],
-  [
-    4,
-    "KNX Serial (UMC).Shutter10 move",
-    "KNX Serial (UMC).Shutter10 stop",
-    "Shutter10"
   ],
   [
     4,
