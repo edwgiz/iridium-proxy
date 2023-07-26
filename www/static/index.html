@@ -19,6 +19,16 @@
             padding: 0;
         }
 
+        input, input::-webkit-slider-thumb, input:focus, input:active, input:hover {
+            appearance: none;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            background: none;
+            touch-action: none;
+        }
+
+
         body.login {
             background: radial-gradient(ellipse at 30% 40%, rgba(0, 198, 214, 1) 0%, rgba(0, 126, 154, 1) 50%, rgba(0, 50, 131, 1) 100%);
         }
@@ -41,7 +51,6 @@
             font-size: min(10vw, 10vh);
             text-align: center;
             font-family: sans-serif;
-            outline: none;
             border-radius: 0.5em;
             border-width: 2px;
             border-color: lightgrey;
@@ -63,10 +72,11 @@
         :root {
             --control-margin: min(5vw, 5vh);
             --control-margin-rigth: min(10vw, 10vh);
+            --border-radius: min(5vw, 5vh);
         }
 
         /*noinspection CssUnusedSymbol*/
-        div.slider {
+        div.slider, div.shutter-switch {
             margin: var(--control-margin) var(--control-margin-rigth) var(--control-margin) var(--control-margin);
             position: relative;
             height: min(10vw, 10vh);
@@ -74,7 +84,20 @@
         }
 
         /*noinspection CssUnusedSymbol*/
-        label.slider {
+        input.command-slider, input.feedback-slider, input.shutter-switch-move, input.shutter-switch-stop {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            border-style: none;
+            cursor: pointer;
+            background: none;
+        }
+
+        /*noinspection CssUnusedSymbol*/
+        label.slider,
+        label.shutter-switch {
             position: absolute;
             z-index: -2;
             top: 50%;
@@ -90,32 +113,20 @@
             color: #ffffff;
             display: block;
             background-color: #2A2A2A;
-            border-radius: min(5vw, 5vh);
+            border-radius: var(--border-radius);
         }
 
         /*noinspection CssUnusedSymbol*/
         input.command-slider, input.feedback-slider {
-            position: absolute;
-            top: 0;
             left: 50%;
             transform: translateX(-50%);
             z-index: -1;
-            -webkit-appearance: none;
-            appearance: none;
             width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-            border-style: none;
-            cursor: pointer;
-            background: none;
         }
 
-        /*noinspection CssUnusedSymbol*/
+            /*noinspection CssUnusedSymbol*/
         input.command-slider::-webkit-slider-thumb,
         input.feedback-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
             height: min(10vw, 10vh);
             width: min(10vw, 10vh);
             border-radius: 50%;
@@ -136,9 +147,10 @@
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #ffffff 73%, #ffffff 100%);
         }
 
-        input, input:hover, input:active, input:focus {
-            border-style: none;
-            outline: none;
+        input, input:hover, input:active, input:focus, input:current {
+            appearance: none !important;
+            background: none !important;
+            outline: none !important;
         }
 
         /*noinspection CssUnusedSymbol*/
@@ -222,6 +234,48 @@
         input.feedback-slider.vent::-webkit-slider-thumb {
             background: radial-gradient(circle, #00000030 0%, #00000030 53%, #80ff80 73%, #80ff80 100%);
         }
+        /*noinspection CssUnusedSymbol*/
+        label.shutter-switch {
+            color: #eeccff;
+        }
+        /*noinspection CssUnusedSymbol*/
+        div.shutter-switch-move,
+        div.shutter-switch-stop {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            overflow: hidden;
+        }
+        /*noinspection CssUnusedSymbol*/
+        div.shutter-switch-move {
+            left: 0;
+            margin: 0 auto 0 0;
+        }
+        /*noinspection CssUnusedSymbol*/
+        div.shutter-switch-stop {
+            right: 0;
+            margin: 0 0 0 auto;
+        }
+        /*noinspection CssUnusedSymbol*/
+        input.shutter-switch-move, input.shutter-switch-stop {
+            border-radius: var(--border-radius);
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 200%;
+            background: radial-gradient(closest-corner, #2a2a2a00 68%, #eeccffff 100%);
+        }
+        /*noinspection CssUnusedSymbol*/
+        input.shutter-switch-move {
+            left: 0;
+            margin: 0 auto 0 0;
+        }
+        /*noinspection CssUnusedSymbol*/
+        input.shutter-switch-stop {
+            right: 0;
+            margin: 0 0 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -301,15 +355,10 @@
     const feedbacks = {};
 
     function add_touch_listeners(el, down, up) {
-        if (window.TouchEvent) {
-            el.addEventListener("touchstart", down, false);
-            el.addEventListener("touchend", up, false);
-        }
         if (window.PointerEvent) {
             el.addEventListener("pointerdown", down, false);
             el.addEventListener("pointerup", up, false);
-        }
-        if (window.MouseEvent) {
+        } else if (window.MouseEvent) {
             el.addEventListener("mousedown", down, false);
             el.addEventListener("mouseup", up, false);
         }
@@ -521,26 +570,86 @@
         return cell;
     }
 
+    let shutter_switch_button_background = undefined;
+
+    function on_shutter_switch_down(_ev) {
+        send_command(_ev.target.id, _ev.target.is_stop ? "0" : "1")
+    }
+    function on_shutter_switch_up(_ev) {
+        setTimeout(function () {
+            send_command(_ev.target.id, _ev.target.is_stop ? "1" : "0")
+        }, 50)
+    }
+
+    function on_shutter_switch_feedback_value(button, value) {
+        let active = Number.parseFloat(value) > 0.0;
+        button.style.background = active ? shutter_switch_button_background : "none";
+    }
+
+    function create_shutter_switch_button(shutter_move_name, class_name, is_stop) {
+        const div = d.createElement("div");
+        div.classList.add(class_name)
+
+        const input = d.createElement('input');
+        input.type = "button"
+        input.id = shutter_move_name;
+        input.classList.add(class_name)
+        if (!shutter_switch_button_background) {
+            shutter_switch_button_background = input.style.background;
+        }
+        input.style.background = "none"
+        add_touch_listeners(input, on_shutter_switch_down, on_shutter_switch_up);
+        input.is_stop = is_stop;
+        input.on_feedback_value = on_shutter_switch_feedback_value;
+        feedbacks[shutter_move_name] = input;
+        div.appendChild(input);
+        return div;
+    }
+
+    function create_shutter_switch(args) {
+        const shutter_move_name = args[1];
+        const shutter_stop_name = args[2];
+        const label_text = args[3];
+
+        const cell = d.createElement('div');
+        cell.classList.add("shutter-switch");
+        {
+            let label = d.createElement('label');
+            label.classList.add("shutter-switch")
+            label.appendChild(d.createTextNode(label_text));
+            cell.appendChild(label);
+        }
+        cell.appendChild(
+            create_shutter_switch_button(shutter_move_name, "shutter-switch-move", false));
+        cell.appendChild(
+            create_shutter_switch_button(shutter_stop_name, "shutter-switch-stop", true));
+
+        return cell;
+    }
+
     function init() {
         feedbacks.length = 0;
         const xr = new XMLHttpRequest();
         xr.open("GET", "/config.json", false);
         xr.send();
         const arr = JSON.parse(xr.responseText);
-        arr.forEach((e) => {
+        arr.forEach((args) => {
             let cell = null;
-            switch (e[0]) {
+            switch (args[0]) {
                 case 0:
-                    cell = create_lighting_slider(e);
+                    cell = create_lighting_slider(args);
                     break;
                 case 1:
-                    cell = create_lighting_switch(e);
+                    cell = create_lighting_switch(args);
                     break;
                 case 2:
-                    cell = create_fan_switch(e);
+                    cell = create_fan_switch(args);
                     break;
                 case 3:
                     cell = create_breezart();
+                    break;
+                case 4:
+                    cell = create_shutter_switch(args);
                     break;
             }
             if (cell) {
