@@ -15,7 +15,6 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-//noinspection RsUnusedImport
 const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
 
 static BUS: Lazy<(Sender<String>, Receiver<String>)> = Lazy::new(|| tokio::sync::broadcast::channel(64));
@@ -57,7 +56,9 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
                                 Ok(msg) => {
                                     debug!(msg);
                                     if let Some((channel_name, value)) = msg.split_once(";") {
-                                        if crate::breezart::send_set(channel_name, value) {} else if !crate::iridium::http_client::send_set(channel_name, value).await {
+                                        if crate::breezart::send_set(channel_name, value) {
+                                            // nop
+                                        } else if !crate::iridium::http_client::send_set(channel_name, value).await {
                                             warn!("Client socket: Can't pass iridium message: {msg}");
                                         }
                                     } else {
