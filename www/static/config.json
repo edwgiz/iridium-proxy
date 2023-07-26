@@ -19,6 +19,12 @@
   ],
   [
     0,
+    "KNX Serial (UMC).Gr 5 svalue",
+    "KNX Serial (UMC).Gr 5 sstatus value",
+    "Corridor"
+  ],
+  [
+    0,
     "KNX Serial (UMC).Gr 3-1 value",
     "KNX Serial (UMC).Gr 3-1 status value",
     "Hall 1"
@@ -102,12 +108,72 @@
     "Backyard entrance"
   ],
   [
-    0,
-    "KNX Serial (UMC).Gr 5 svalue",
-    "KNX Serial (UMC).Gr 5 sstatus value",
-    "Gr 5"
+    3
   ],
   [
-    3
+    4,
+    "KNX Serial (UMC).Shutter1 move",
+    "KNX Serial (UMC).Shutter1 stop",
+    "Shutter1"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter2 move",
+    "KNX Serial (UMC).Shutter2 stop",
+    "Shutter2"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter3 move",
+    "KNX Serial (UMC).Shutter3 stop",
+    "Shutter3"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter4 move",
+    "KNX Serial (UMC).Shutter4 stop",
+    "Shutter4"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter5 move",
+    "KNX Serial (UMC).Shutter5 stop",
+    "Shutter5"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter6 move",
+    "KNX Serial (UMC).Shutter6 stop",
+    "Shutter6"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter7 move",
+    "KNX Serial (UMC).Shutter7 stop",
+    "Shutter7"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter8 move",
+    "KNX Serial (UMC).Shutter8 stop",
+    "Shutter8"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter9 move",
+    "KNX Serial (UMC).Shutter9 stop",
+    "Shutter9"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter10 move",
+    "KNX Serial (UMC).Shutter10 stop",
+    "Shutter10"
+  ],
+  [
+    4,
+    "KNX Serial (UMC).Shutter11 move",
+    "KNX Serial (UMC).Shutter11 stop",
+    "Shutter11"
   ]
 ]
