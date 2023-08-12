@@ -79,48 +79,90 @@ pub async fn local_websocket_handler(session_id: Option<String>, auth_db: Arc<Mu
 }
 
 
+const SETTINGS: serial::PortSettings = serial::PortSettings {
+    baud_rate: serial::Baud19200,
+    char_size: serial::Bits8,
+    parity: serial::ParityEven,
+    stop_bits: serial::Stop1,
+    flow_control: serial::FlowNone,
+};
+
 fn main() {
     log::init();
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
+    use serial;
+    use serial::prelude::*;
+    use tracing::{debug, error, info, warn};
+    use std::time::Duration;
+    use std::io::ErrorKind;
+    use knx_rs::helper::hex_to_string;
+    use std::io::Read;
 
-    runtime.block_on(async {
-        breezart::init();
-        websocket::init();
+    let mut port = serial::open("/dev/ttymxc1").expect("couldn't open serial port");
+    port.configure(&SETTINGS)
+        .expect("couldn't set serial settings");
+    port.set_timeout(Duration::from_secs(10))
+        .expect("couldn't set timeout");
 
-        let mut auth_cache: LruCache<u64, u64> = LruCache::new(NonZeroUsize::new(32).unwrap());
-        auth_cache.push(u64::from_str_radix("F9681A64D3301861", 16).unwrap(), u64::MAX);
-        let auth_cache = Arc::new(Mutex::new(auth_cache));
-        let auth_cache = warp::any().map(move || Arc::clone(&auth_cache));
 
-        let login_route = warp::post()
-            .and(warp::path("login"))
-            .and(warp::body::bytes())
-            .and(auth_cache.clone())
-            .and_then(login)
-            .boxed();
+    info!("start reading bytes");
 
-        let proxy_websocket_route = warp::path("proxy")
-            .and(warp::cookie::optional("session_id"))
-            .and(auth_cache.clone())
-            .and(warp::ws())
-            .and_then(local_websocket_handler)
-            .boxed();
+    loop {
+        let mut buf = [0; 24];
+        match port.read(&mut buf) {
+            Ok(nr) => {
+                info!("{} -> {}", hex_to_string(&buf[0..nr]), nr);
+            }
+            Err(err) => {
+                if err.kind() != ErrorKind::TimedOut {
+                    info!(" result : {:?}", err)
+                }
+            }
+        }
+    }
 
-        let static_resources = warp_embed::embed(&StaticResources {});
-        warp::serve(
-            login_route
-                .or(static_resources)
-                .or(proxy_websocket_route)
-                .boxed())
-            .tls()
-            .cert(include_bytes!("../www/tls/cert.pem"))
-            .key(include_bytes!("../www/tls/key.pem"))
-            .run(([0, 0, 0, 0], 1443))
-            .await;
-    });
+
+    /*
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
+
+        runtime.block_on(async {
+            breezart::init();
+            websocket::init();
+
+            let mut auth_cache: LruCache<u64, u64> = LruCache::new(NonZeroUsize::new(32).unwrap());
+            auth_cache.push(u64::from_str_radix("F9681A64D3301861", 16).unwrap(), u64::MAX);
+            let auth_cache = Arc::new(Mutex::new(auth_cache));
+            let auth_cache = warp::any().map(move || Arc::clone(&auth_cache));
+
+            let login_route = warp::post()
+                .and(warp::path("login"))
+                .and(warp::body::bytes())
+                .and(auth_cache.clone())
+                .and_then(login)
+                .boxed();
+
+            let proxy_websocket_route = warp::path("proxy")
+                .and(warp::cookie::optional("session_id"))
+                .and(auth_cache.clone())
+                .and(warp::ws())
+                .and_then(local_websocket_handler)
+                .boxed();
+
+            let static_resources = warp_embed::embed(&StaticResources {});
+            warp::serve(
+                login_route
+                    .or(static_resources)
+                    .or(proxy_websocket_route)
+                    .boxed())
+                .tls()
+                .cert(include_bytes!("../www/tls/cert.pem"))
+                .key(include_bytes!("../www/tls/key.pem"))
+                .run(([0, 0, 0, 0], 1443))
+                .await;
+        });
+     */
 }
