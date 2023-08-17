@@ -1,7 +1,7 @@
 use core::result::Result;
 use std::convert::Infallible;
 use std::include_bytes;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroUsize, ParseIntError};
 use std::sync::Arc;
 
 use lru::LruCache;
@@ -15,6 +15,7 @@ mod log;
 mod websocket;
 mod iridium;
 mod breezart;
+mod knx;
 
 
 #[derive(RustEmbed)]
@@ -98,15 +99,44 @@ fn main() {
     use knx_rs::helper::hex_to_string;
     use std::io::Read;
 
-    let mut port = serial::open("/dev/ttymxc1").expect("couldn't open serial port");
+/*    let mut port = serial::open("/dev/ttymxc1").expect("couldn't open serial port");
     port.configure(&SETTINGS)
         .expect("couldn't set serial settings");
     port.set_timeout(Duration::from_secs(10))
         .expect("couldn't set timeout");
 
-
+*/
     info!("start reading bytes");
 
+    use knx_rs::parser::parse_imi;
+
+
+    let strs = [
+        "BC 11 02 18 0C E1 00 80 25",
+        "BC 11 05 18 02 E1 00 81 2D",
+        "BC 11 05 19 02 E2 00 80 F7 D9",
+        "BC 11 02 18 0C E1 00 81 24",
+        "BC 11 05 18 02 E1 00 80 2C BC 11 05 19 02 E2 00 80 00 2E"
+    ];
+    /**
+    y Ok(([37], ({ 1.1.2 }, { 1/8/12 }, (225, 128))))
+    y Ok(([45], ({ 1.1.5 }, { 1/8/2 }, (225, 129))))
+    y Ok(([247, 217], ({ 1.1.5 }, { 1/9/2 }, (226, 128))))
+    y Ok(([36], ({ 1.1.2 }, { 1/8/12 }, (225, 129))))
+    y Ok(([44, 188, 17, 5, 25, 2, 226, 0, 128, 0, 46], ({ 1.1.5 }, { 1/8/2 }, (225, 128))))
+*/
+    for str in strs {
+        let x: Result<Vec<u8>, ParseIntError> = (0..str.len()).step_by(3).map(|i| u8::from_str_radix(&str[i..i + 2], 16)).collect();
+        let vec = x.unwrap();
+        let buf = vec.as_slice();
+
+        info!("{:?}", knx::parse_tp(&buf));
+    }
+
+
+//    println!("{:?}",cemi);
+
+    /*
     loop {
         let mut buf = [0; 24];
         match port.read(&mut buf) {
@@ -122,7 +152,6 @@ fn main() {
     }
 
 
-    /*
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_io()
             .enable_time()
