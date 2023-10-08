@@ -14,7 +14,7 @@ use tracing::{debug, error, info, warn};
 
 use Parameter::*;
 
-const PASSWORD: &'static str = "C5E4";
+const PASSWORD: &str = "C5E4";
 
 static BUS: Lazy<SyncSender<TcpRequest>> = Lazy::new(subscribe);
 static INTENSIVE_RECV_ATTEMPTS: Lazy<AtomicU32> = Lazy::new(|| AtomicU32::new(1));
@@ -66,7 +66,7 @@ fn subscribe() -> SyncSender<TcpRequest> {
         }
     });
 
-    return sender;
+    sender
 }
 
 fn send_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpRequest) -> bool {
@@ -89,10 +89,10 @@ fn send_request(buffer: &mut [u8; 512], stream: &mut TcpStream, request: &TcpReq
         warn!("TCP writing failed");
         return false;
     }
-    return true;
+    true
 }
 
-const VST07_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^VSt07_([0-9a-f]+)_([0-9a-f]+)_([0-9a-f]+)_[0-9a-f]+_([0-9a-f]+)").unwrap());
+static VST07_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^VSt07_([0-9a-f]+)_([0-9a-f]+)_([0-9a-f]+)_[0-9a-f]+_([0-9a-f]+)").unwrap());
 
 static VALUES: Lazy<Mutex<HashMap<&'static Parameter, String>>> = Lazy::new(|| Mutex::new(HashMap::with_capacity(10)));
 
@@ -161,7 +161,7 @@ pub fn get_all_values() -> Vec<(String, String)> {
     for tuple in src.iter() {
         dst.push((format(tuple.0), tuple.1.clone()));
     }
-    return dst;
+    dst
 }
 
 fn parse_hex_capture(captures: &Captures, capture_index: usize) -> Result<u16, String> {
@@ -186,7 +186,7 @@ pub(crate) fn send_set(channel_name: &str, value: &str) -> bool {
             }
         }
         "Breezart.SpeedTarget" => {
-            match u8::from_str_radix(value, 10) {
+            match value.parse::<u8>() {
                 Ok(value) => {
                     if value <= 10 {
                         enqueue_req(format!("VWSpd_{PASSWORD}_{:X}", value));
@@ -199,7 +199,7 @@ pub(crate) fn send_set(channel_name: &str, value: &str) -> bool {
         }
         &_ => {return false;}
     }
-    return true;
+    true
 }
 
 fn enqueue_req(msg: String) {

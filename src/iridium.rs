@@ -9,16 +9,16 @@ pub mod http_client {
     use tracing::{error, info, warn};
     use warp::http;
 
-    const PROXY_URL_BASE: &'static str = formatcp!("http://{}/", crate::commons::PROXY_HOST);
+    const PROXY_URL_BASE: &str = formatcp!("http://{}/", crate::commons::PROXY_HOST);
     static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(http_client);
     static SESSION_COOKIE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::default()));
-    const SET_COOKIE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(ir-session-id=[^;]+)").unwrap());
+    static SET_COOKIE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(ir-session-id=[^;]+)").unwrap());
 
     fn http_client() -> reqwest::Client {
-        return reqwest::Client::builder()
+        reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .expect("Default reqwest client couldn't build");
+            .expect("Default reqwest client couldn't build")
     }
 
 
@@ -50,7 +50,7 @@ pub mod http_client {
                 error!("Login failed: {err}");
             }
         }
-        return false;
+        false
     }
 
     async fn invoke_remote(path: &str, query: &[(&str, &str)]) -> Result<Response, &'static str> {
@@ -85,7 +85,7 @@ pub mod http_client {
                 break;
             }
         }
-        return Err("Illegal state");
+        Err("Illegal state")
     }
 
 
@@ -111,7 +111,7 @@ pub mod http_client {
     }
 
     pub(crate) async fn read_all_tags() -> Result<TagsBody, String> {
-        return match invoke_remote("json/tags/server/tags/get?from=0&count=999&what=tags", &[]).await {
+        match invoke_remote("json/tags/server/tags/get?from=0&count=999&what=tags", &[]).await {
             Ok(response) => {
                 match response.json::<TagsBody>().await {
                     Ok(tags_body) => {
@@ -129,7 +129,7 @@ pub mod http_client {
     }
 
     pub(crate) async fn send_set(channel_name: &str, value: &str) -> bool {
-        return match invoke_remote("json/ok/server/channel/set",
+        match invoke_remote("json/ok/server/channel/set",
          &[("name", channel_name), ("value", value)]
         ).await {
             Ok(response) => {

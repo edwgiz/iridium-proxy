@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-const PROXY_WEBSOCKET_URL: &'static str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
+const PROXY_WEBSOCKET_URL: &str = formatcp!("ws://{}/", crate::commons::PROXY_HOST);
 
 static BUS: Lazy<(Sender<String>, Receiver<String>)> = Lazy::new(|| tokio::sync::broadcast::channel(64));
 
@@ -55,7 +55,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
                             match msg.to_str() {
                                 Ok(msg) => {
                                     debug!(msg);
-                                    if let Some((channel_name, value)) = msg.split_once(";") {
+                                    if let Some((channel_name, value)) = msg.split_once(';') {
                                         if crate::breezart::send_set(channel_name, value) {
                                             // nop
                                         } else if !crate::iridium::http_client::send_set(channel_name, value).await {
@@ -88,7 +88,7 @@ pub async fn on_websocket_upgrade(local_socket: warp::filters::ws::WebSocket) {
 }
 
 async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>) -> Result<SplitSink<warp::ws::WebSocket, warp::ws::Message>, String> {
-    return match crate::iridium::http_client::read_all_tags().await {
+    match crate::iridium::http_client::read_all_tags().await {
         Ok(tags_body) => {
             for tag in tags_body.tags {
                 let msg = create_message(tag.id, &tag.name, &tag.value);
@@ -107,7 +107,7 @@ async fn read_remote_all(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::w
         Err(err) => {
             Err(err)
         }
-    };
+    }
 }
 
 fn create_message(id: u32, name: &String, value: &String) -> String {
@@ -124,7 +124,7 @@ fn broadcast_message(msg: String) {
 
 
 fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, warp::ws::Message>, remote_active: Arc<AtomicBool>) -> JoinHandle<bool> {
-    return tokio::task::spawn(async move {
+    tokio::task::spawn(async move {
         let mut receiver = BUS.0.subscribe();
         info!("Client websocket sending activated");
         while remote_active.load(Ordering::SeqCst) {
@@ -154,8 +154,8 @@ fn subscribe_remote_websocket(mut local_ws_tx: SplitSink<warp::ws::WebSocket, wa
         }
         local_ws_tx.close().await.unwrap_or_default();
         info!("Client websocket sending deactivated");
-        return true;
-    });
+        true
+    })
 }
 
 
