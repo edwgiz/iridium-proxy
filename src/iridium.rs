@@ -7,8 +7,7 @@ pub mod http_client {
     use reqwest::{Response, StatusCode};
     use serde::Deserialize;
     use tracing::{error, info, warn};
-    use warp::http;
-
+    
     const PROXY_URL_BASE: &str = formatcp!("http://{}/", crate::commons::PROXY_HOST);
     static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(http_client);
     static SESSION_COOKIE: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::default()));
@@ -65,7 +64,7 @@ pub mod http_client {
             }
             {
                 let session_cookie = SESSION_COOKIE.lock().unwrap().as_str().to_owned();
-                remote_request_builder = remote_request_builder.header(http::header::COOKIE, session_cookie);
+                remote_request_builder = remote_request_builder.header(reqwest::header::COOKIE, session_cookie);
             }
             let remote_request = remote_request_builder.build().unwrap();
             if let Ok(remote_response) = HTTP_CLIENT.execute(remote_request).await {
