@@ -1,3 +1,11 @@
 [target.armv7-unknown-linux-musleabihf]
 linker = "/usr/armv7l-linux-musleabihf-cross/bin/armv7l-linux-musleabihf-gcc"
-rustflags = "-C target-cpu=cortex-a9 "
+rustflags = [
+    "-C", "target-cpu=cortex-a9",
+    "-C", "debuginfo=0",
+    "-C", "link-arg=-Wl,--gc-sections"
+]
+
+[env]
+CC_armv7_unknown_linux_musleabihf = "/usr/armv7l-linux-musleabihf-cross/bin/armv7l-linux-musleabihf-gcc"
+AR_armv7_unknown_linux_musleabihf = "/usr/armv7l-linux-musleabihf-cross/bin/armv7l-linux-musleabihf-ar"

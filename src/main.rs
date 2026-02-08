@@ -20,10 +20,11 @@ mod breezart;
 #[folder = "www/static/"]
 struct StaticResources;
 
-#[derive(RustEmbed)]
+/*#[derive(RustEmbed)]
 #[folder = "www/tls/"]
 #[include = "*.pem"]
 struct TlsResources;
+*/
 
 //noinspection HttpUrlsUsage
 const WEB_PASSWORD: &[u8] = b"edwgiz";

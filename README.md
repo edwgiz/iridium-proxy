@@ -1,6 +1,7 @@
 # Release build
 ```shell
 cargo build --target armv7-unknown-linux-musleabihf --release
+dbclient user@hostname "cat > iridium-proxy.new" < target/armv7-unknown-linux-musleabihf/release/iridium-proxy
 ```
 
 # Generate SSL certificate 
